@@ -8,15 +8,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Блок с WebGL канвасом -->
     <canvas id="bgCanvas" class="hero-canvas"></canvas>
     
-    <!-- Текстовый слой поверх (опционально) -->
     <div class="hero-text-overlay" id="heroTextOverlay">
         <div class="hero-title">RENNprod</div>
     </div>
 
-    <!-- Основной контент -->
     <div class="content-wrapper" id="contentWrapper">
         <section class="intro">
             <h2>Снимаем рекламу, клипы, кино и мероприятия.</h2>
@@ -24,6 +21,7 @@
         </section>
     </div>
 
+    <!-- Импорт Three.js как модуль -->
     <script type="importmap">
         {
             "imports": {
