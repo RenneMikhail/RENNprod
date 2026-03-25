@@ -151,3 +151,35 @@ body {
         gap: 20px;
     }
 }
+.video-grid-section {
+    padding: 80px 20px;
+    background-color: #FFFFFF;
+}
+
+.section-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 50px;
+    color: #000000;
+}
+
+.video-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.video-item {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.video-item video {
+    width: 100%;
+    height: auto;
+    display: block;
+}
