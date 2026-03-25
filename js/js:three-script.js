@@ -39,7 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ЗАГРУЗКА GLTF МОДЕЛИ
     const loader = new GLTFLoader();
     loader.load(
-        'models/your-model.glb',  // <-- ЗДЕСЬ ИМЯ ТВОЕГО ФАЙЛА
+        loader.load(
+         'models/22.gltf',  // <-- ЗДЕСЬ ИМЯ ТВОЕГО ФАЙЛА
         (gltf) => {
             model = gltf.scene;
             model.scale.set(1, 1, 1);
