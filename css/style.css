@@ -10,33 +10,59 @@ body {
     color: #000000;
 }
 
+/* Hero блок с видеофоном */
 .hero {
     position: relative;
     width: 100%;
     height: 100vh;
     min-height: 600px;
-    background-color: #FFFFFF;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
 }
 
+.hero-video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: cover;
+    z-index: 1;
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 2;
+}
+
 .hero-content {
+    position: relative;
     text-align: center;
     width: 100%;
+    z-index: 3;
 }
 
 .stretching-text {
     font-weight: 900;
     font-size: clamp(3rem, 12vw, 9rem);
-    color: #000000;
+    color: #FFFFFF;
     letter-spacing: normal;
     transform: scaleY(1);
     transform-origin: center center;
     transition: all 0.03s linear;
     margin: 0;
     line-height: 1.2;
+    text-shadow: 0 0 20px rgba(0,0,0,0.5);
 }
 
 .scroll-hint {
@@ -46,7 +72,8 @@ body {
     transform: translateX(-50%);
     font-size: 14px;
     font-weight: 400;
-    color: #666;
+    color: #FFFFFF;
+    z-index: 3;
     animation: bounce 2s infinite;
 }
 
@@ -75,6 +102,7 @@ body {
     margin: 0 auto;
 }
 
+/* Видео сетка с шахматным порядком и наслоением */
 .video-grid-section {
     padding: 80px 20px;
     background-color: #FFFFFF;
@@ -88,7 +116,103 @@ body {
     color: #000000;
 }
 
-@media (max-width: 768px) {
+.video-grid {
+    position: relative;
+    max-width: 1000px;
+    margin: 0 auto;
+    min-height: 800px;
+}
+
+.video-item {
+    position: absolute;
+    width: 380px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease, z-index 0.3s;
+}
+
+.video-item:hover {
+    transform: scale(1.02);
+    z-index: 10;
+}
+
+.video-item video {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Шахматное расположение с наслоением */
+.item-1 {
+    top: 0;
+    left: 0;
+    z-index: 4;
+}
+
+.item-2 {
+    top: 80px;
+    right: 0;
+    z-index: 3;
+}
+
+.item-3 {
+    top: 280px;
+    left: 60px;
+    z-index: 2;
+}
+
+.item-4 {
+    top: 360px;
+    right: 40px;
+    z-index: 1;
+}
+
+/* Адаптация для планшетов */
+@media (max-width: 900px) {
+    .video-item {
+        width: 300px;
+    }
+    
+    .item-1 {
+        left: 0;
+    }
+    
+    .item-2 {
+        right: 0;
+    }
+    
+    .item-3 {
+        left: 20px;
+        top: 250px;
+    }
+    
+    .item-4 {
+        right: 20px;
+        top: 330px;
+    }
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 700px) {
+    .video-grid {
+        position: static;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-height: auto;
+    }
+    
+    .video-item {
+        position: static;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    .item-1, .item-2, .item-3, .item-4 {
+        position: static;
+    }
+    
     .about-text {
         font-size: 1.2rem;
     }
