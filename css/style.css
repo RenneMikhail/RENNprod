@@ -1,3 +1,4 @@
+/* Сброс и базовые стили */
 * {
     margin: 0;
     padding: 0;
@@ -6,234 +7,87 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #FFFFFF;
-    color: #000000;
+    background-color: #000;
+    color: #fff;
+    overflow-x: hidden;
 }
 
+/* Блок с огромным логотипом */
 .hero {
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100vh;
-    min-height: 600px;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
+    background-color: #000;
+    z-index: 10;
+    pointer-events: none; /* Чтобы текст не мешал кликам, если они появятся */
 }
 
-.hero-video {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    min-width: 100%;
-    min-height: 100%;
-    width: auto;
-    height: auto;
-    object-fit: cover;
-    z-index: 1;
-}
-
-.hero-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 2;
-}
-
-.hero-content {
-    position: relative;
-    text-align: center;
-    width: 100%;
-    z-index: 3;
-    padding: 0 20px;
-}
-
-.stretching-text {
+.hero-text {
+    font-size: 15vw; /* Изначально огромный размер */
     font-weight: 900;
-    font-family: 'Inter', sans-serif;
-    color: rgba(255, 255, 255, 0.8);
-    text-shadow: none;
-    margin: 0;
-    line-height: 1;
-    transform-origin: top center;
-    transition: all 0.02s linear;
-    display: inline-block;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    color: #fff;
+    transition: all 0.1s linear; /* Плавное изменение при скролле */
+    will-change: transform, font-size;
 }
 
-@media (min-width: 769px) {
-    .stretching-text {
-        font-size: clamp(5rem, 10vw, 9rem);
-        letter-spacing: -0.01em;
-        white-space: nowrap;
-    }
+/* Обертка с основным контентом */
+.content-wrapper {
+    position: relative;
+    z-index: 20;
+    background-color: #000;
+    margin-top: 100vh; /* Отступ, чтобы контент начался после hero-блока */
+    padding: 4rem 2rem;
+    min-height: 100vh;
 }
 
-@media (max-width: 768px) {
-    .stretching-text {
-        font-size: 2.8rem;
-        letter-spacing: -0.03em;
-        white-space: normal;
-        word-break: keep-all;
-        max-width: 100%;
-    }
-}
-    
-    .about-text {
-        font-size: 1.2rem;
-    }
-    
-    .scroll-hint {
-        font-size: 12px;
-    }
-    
-    .section-title {
-        font-size: 1.8rem;
-    }
-    
-    .video-grid {
-        position: static;
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        min-height: auto;
-    }
-    
-    .video-item {
-        position: static;
-        width: 100%;
-        margin-bottom: 20px;
-    }
-    
-    .item-1, .item-2, .item-3, .item-4 {
-        position: static;
-    }
-}
-
-.scroll-hint {
-    position: absolute;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 14px;
-    font-weight: 400;
-    color: #FFFFFF;
-    z-index: 3;
-    animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-    0%, 100% { transform: translateX(-50%) translateY(0); }
-    50% { transform: translateX(-50%) translateY(10px); }
-}
-
-.about {
-    padding: 100px 20px;
-    background-color: #FFFFFF;
-    border-top: 1px solid #eee;
-}
-
-.container {
+/* Стили для твоего существующего контента */
+.intro {
     max-width: 1200px;
     margin: 0 auto;
-}
-
-.about-text {
-    font-size: 1.5rem;
-    line-height: 1.4;
-    font-weight: 400;
     text-align: center;
-    max-width: 800px;
-    margin: 0 auto;
+    padding: 4rem 0;
 }
 
-.video-grid-section {
-    padding: 80px 20px;
-    background-color: #FFFFFF;
-}
-
-.section-title {
-    font-size: 2.5rem;
+.intro h2 {
+    font-size: 3rem;
     font-weight: 700;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+}
+
+.intro p {
+    font-size: 1.25rem;
+    line-height: 1.5;
+    color: #ccc;
+}
+
+.placeholder-block {
+    max-width: 1200px;
+    margin: 6rem auto;
     text-align: center;
-    margin-bottom: 50px;
-    color: #000000;
+    padding: 4rem;
+    border-top: 1px solid #333;
 }
 
-.video-grid {
-    position: relative;
-    max-width: 1000px;
-    margin: 0 auto;
-    min-height: 800px;
-}
-
-.video-item {
-    position: absolute;
-    width: 380px;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-    transition: transform 0.3s ease, z-index 0.3s;
-}
-
-.video-item:hover {
-    transform: scale(1.02);
-    z-index: 10;
-}
-
-.video-item video {
-    width: 100%;
-    height: auto;
-    display: block;
-}
-
-.item-1 {
-    top: 0;
-    left: 0;
-    z-index: 4;
-}
-
-.item-2 {
-    top: 80px;
-    right: 0;
-    z-index: 3;
-}
-
-.item-3 {
-    top: 280px;
-    left: 60px;
-    z-index: 2;
-}
-
-.item-4 {
-    top: 360px;
-    right: 40px;
-    z-index: 1;
-}
-
-@media (max-width: 900px) {
-    .video-item {
-        width: 300px;
+/* Адаптивность */
+@media (max-width: 768px) {
+    .hero-text {
+        font-size: 12vw; /* Чуть меньше на мобилках, но всё ещё большой */
+        white-space: normal;
+        text-align: center;
+        padding: 0 1rem;
     }
-    
-    .item-1 {
-        left: 0;
+    .intro h2 {
+        font-size: 2rem;
     }
-    
-    .item-2 {
-        right: 0;
-    }
-    
-    .item-3 {
-        left: 20px;
-        top: 250px;
-    }
-    
-    .item-4 {
-        right: 20px;
-        top: 330px;
+    .content-wrapper {
+        padding: 2rem 1rem;
     }
 }
