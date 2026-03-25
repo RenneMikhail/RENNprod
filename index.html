@@ -2,59 +2,31 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>RENNprod — Продакшн полного цикла</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>RENNprod — Видеопродакшн</title>
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Подключаем шрифты, похожие на Zebra Hero (жирные, современные) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Блок с огромным логотипом-шрифтом -->
+    <div class="hero" id="hero">
+        <div class="hero-text" id="heroText">RENNprod</div>
+    </div>
 
-    <section class="hero">
-        <video autoplay loop muted playsinline class="hero-video">
-            <source src="video/5.mp4" type="video/mp4">
-        </video>
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <h1 class="stretching-text" id="animatedText">RENNprod</h1>
-        </div>
-        <div class="scroll-hint">↓ листайте вниз</div>
-    </section>
+    <!-- Основной контент, который "заезжает" -->
+    <div class="content-wrapper" id="contentWrapper">
+        <section class="intro">
+            <h2>Снимаем рекламу, клипы, кино и мероприятия.</h2>
+            <p>Управляем съёмкой от идеи до монтажа.<br>Технологии, команда, опыт работы с топ-брендами и телеканалами.</p>
+        </section>
 
-    <section class="about">
-        <div class="container">
-            <p class="about-text">Снимаем рекламу, клипы, кино и мероприятия.<br>
-            Управляем съёмкой от идеи до монтажа.<br>
-            Технологии, команда, опыт работы с топ-брендами и телеканалами.</p>
-        </div>
-    </section>
-
-    <section class="video-grid-section">
-        <div class="container">
-            <h2 class="section-title">Наши работы</h2>
-            <div class="video-grid">
-                <div class="video-item item-1">
-                    <video autoplay loop muted playsinline>
-                        <source src="video/1.mp4" type="video/mp4">
-                    </video>
-                </div>
-                <div class="video-item item-2">
-                    <video autoplay loop muted playsinline>
-                        <source src="video/2.mp4" type="video/mp4">
-                    </video>
-                </div>
-                <div class="video-item item-3">
-                    <video autoplay loop muted playsinline>
-                        <source src="video/3.mp4" type="video/mp4">
-                    </video>
-                </div>
-                <div class="video-item item-4">
-                    <video autoplay loop muted playsinline>
-                        <source src="video/4.mp4" type="video/mp4">
-                    </video>
-                </div>
-            </div>
-        </div>
-    </section>
+        <!-- Здесь будут другие блоки, которые ты добавишь позже, например, "Награды", "Клиенты" и т.д. -->
+        <section class="placeholder-block">
+            <h3>Наши работы</h3>
+            <p>Скоро здесь появятся проекты...</p>
+        </section>
+    </div>
 
     <script src="js/script.js"></script>
 </body>
