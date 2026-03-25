@@ -11,7 +11,8 @@ function updateTextStretch() {
     
     let progress = 0;
     
-    // Вычисляем прогресс скролла: 0 = блок полностью виден, 1 = блок полностью скрыт
+    // Вычисляем прогресс скролла
+    // 0 = текст нормальный, 1 = текст максимально растянут (когда дошли до блока "наши работы")
     if (rect.bottom <= 0) {
         progress = 1;
     } else if (rect.top >= windowHeight) {
@@ -22,13 +23,10 @@ function updateTextStretch() {
         progress = Math.min(1, rect.top / windowHeight);
     }
     
-    // Растяжение по Y: от 1 (норма) до 2.8 (максимум)
-    const stretch = 1 + (progress * 1.8);
+    // Растяжение по Y: от 1 (норма) до 2.5 (максимум)
+    const stretch = 1 + (progress * 1.5);
     textEl.style.transform = `scaleY(${stretch})`;
     textEl.style.transformOrigin = "center bottom";
-    
-    // Сохраняем цвет белым
-    textEl.style.color = "#FFFFFF";
 }
 
 window.addEventListener('scroll', updateTextStretch);
