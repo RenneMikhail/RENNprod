@@ -1,4 +1,4 @@
-// Анимация растяжения текста при скролле (эффект жевачки)
+// Анимация растяжения текста при скролле
 function updateTextStretch() {
     const textEl = document.getElementById('animatedText');
     if (!textEl) return;
@@ -11,8 +11,7 @@ function updateTextStretch() {
     
     let progress = 0;
     
-    // Вычисляем прогресс скролла
-    // 0 = текст нормальный, 1 = текст максимально растянут (когда дошли до блока "наши работы")
+    // Прогресс от 0 до 1 при любом движении скролла вниз
     if (rect.bottom <= 0) {
         progress = 1;
     } else if (rect.top >= windowHeight) {
@@ -23,8 +22,8 @@ function updateTextStretch() {
         progress = Math.min(1, rect.top / windowHeight);
     }
     
-    // Растяжение по Y: от 1 (норма) до 2.5 (максимум)
-    const stretch = 1 + (progress * 1.5);
+    // Растяжение: от 1 (норма) до 10 (максимум)
+    const stretch = 1 + (progress * 9);
     textEl.style.transform = `scaleY(${stretch})`;
     textEl.style.transformOrigin = "center bottom";
 }
