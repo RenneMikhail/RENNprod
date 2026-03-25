@@ -1,4 +1,3 @@
-// Анимация растяжения текста при скролле
 function updateTextStretch() {
     const textEl = document.getElementById('animatedText');
     if (!textEl) return;
@@ -11,7 +10,6 @@ function updateTextStretch() {
     
     let progress = 0;
     
-    // Прогресс от 0 до 1 при любом движении скролла вниз
     if (rect.bottom <= 0) {
         progress = 1;
     } else if (rect.top >= windowHeight) {
@@ -22,7 +20,6 @@ function updateTextStretch() {
         progress = Math.min(1, rect.top / windowHeight);
     }
     
-    // Растяжение: от 1 (норма) до 10 (максимум)
     const stretch = 1 + (progress * 9);
     textEl.style.transform = `scaleY(${stretch})`;
     textEl.style.transformOrigin = "center bottom";
