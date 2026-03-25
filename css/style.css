@@ -22,16 +22,6 @@ body {
     opacity: 0.6;
 }
 
-.hero-canvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100vh;
-    z-index: 1;
-    pointer-events: none;
-}
-
 .hero-text-overlay {
     position: fixed;
     top: 0;
@@ -50,20 +40,20 @@ body {
     font-family: 'Inter', sans-serif;
     font-weight: 300;
     letter-spacing: -0.02em;
-    color: #000;  /* ← черный цвет */
+    color: #fff;
     text-align: center;
     width: 100%;
     left: 0;
     transition: all 0.05s linear;
     will-change: transform, font-size, top, opacity;
-    text-shadow: none;  /* убираем тень */
+    text-shadow: 0 0 30px rgba(0,0,0,0.3);
     line-height: 1;
 }
 
 .content-wrapper {
     position: relative;
     z-index: 10;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.8), #000);
+    background: #000;
     margin-top: 100vh;
     padding: 4rem 2rem;
 }
@@ -86,7 +76,7 @@ body {
     color: #ccc;
 }
 
-/* БЛОК С 3D МОДЕЛЬЮ */
+/* БЛОК С 3D МОДЕЛЬЮ - ПРОЗРАЧНЫЙ */
 .model-showcase {
     position: relative;
     width: 100%;
@@ -94,7 +84,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent; /* Прозрачный фон */
+    background: transparent;
     margin: 0 auto;
     overflow: hidden;
 }
@@ -106,9 +96,11 @@ body {
     will-change: transform;
 }
 
+/* ВИДЕО БЛОК - С ЧЕРНЫМ ФОНОМ */
 .video-showcase {
     max-width: 1200px;
     margin: 4rem auto;
+    background: #000;
 }
 
 .video-grid {
@@ -121,6 +113,7 @@ body {
     background: #111;
     border-radius: 12px;
     overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 .demo-video {
@@ -186,14 +179,14 @@ body {
     transform: translateY(-5px);
 }
 
-/* О СОЗДАТЕЛЕ */
+/* О СОЗДАТЕЛЕ - УБРАЛ РАМКУ */
 .about-creator {
     max-width: 900px;
     margin: 4rem auto;
     padding: 2rem;
     background: rgba(255,255,255,0.03);
     border-radius: 24px;
-    border-left: 4px solid #ff3366;
+    /* Убрал border-left */
 }
 
 .about-creator h3 {
