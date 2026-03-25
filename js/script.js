@@ -20,9 +20,9 @@ function updateTextStretch() {
         progress = Math.min(1, rect.top / windowHeight);
     }
     
-    const stretch = 1 + (progress * 9);
+    const stretch = 1 + (progress * 2.5);
     textEl.style.transform = `scaleY(${stretch})`;
-    textEl.style.transformOrigin = "center bottom";
+    textEl.style.transformOrigin = "top center";
 }
 
 window.addEventListener('scroll', updateTextStretch);
