@@ -1,21 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     const heroText = document.querySelector('.hero-title');
-    const contentWrapper = document.getElementById('contentWrapper');
     
-    // Функция для обновления анимации текста и передачи прогресса в Three.js
     function updateHeroAnimation() {
         const scrollY = window.scrollY;
         const windowHeight = window.innerHeight;
+        const progress = Math.min(scrollY / windowHeight, 1);
         
-        let progress = Math.min(scrollY / windowHeight, 1);
-        
-        // Передаем прогресс в Three.js сцену через глобальную переменную
         window.scrollProgress = progress;
         
-        // Анимация текста: уменьшается и исчезает
         if (heroText) {
-            const startSize = 8; // vw
-            const endSize = 2;    // vw
+            const startSize = 8;
+            const endSize = 2;
             let currentSize = startSize - (progress * (startSize - endSize));
             currentSize = Math.max(endSize, currentSize);
             heroText.style.fontSize = `${currentSize}vw`;
