@@ -54,11 +54,12 @@ body {
 
 .stretching-text {
     font-weight: 900;
-    color: #FFFFFF;
-    text-shadow: 0 0 20px rgba(0,0,0,0.5);
+    font-family: 'Inter', sans-serif;
+    color: rgba(255, 255, 255, 0.8);
+    text-shadow: none;
     margin: 0;
     line-height: 1;
-    transform-origin: center bottom;
+    transform-origin: top center;
     transition: all 0.02s linear;
     display: inline-block;
 }
@@ -73,12 +74,13 @@ body {
 
 @media (max-width: 768px) {
     .stretching-text {
-        font-size: 2.2rem;
-        letter-spacing: -0.05em;
+        font-size: 2.8rem;
+        letter-spacing: -0.03em;
         white-space: normal;
         word-break: keep-all;
         max-width: 100%;
     }
+}
     
     .about-text {
         font-size: 1.2rem;
