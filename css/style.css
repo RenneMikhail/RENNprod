@@ -1,0 +1,104 @@
+/* css/style.css */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #FFFFFF;
+    color: #000000;
+}
+
+/* Hero блок на всю высоту экрана */
+.hero {
+    position: relative;
+    width: 100%;
+    height: 100vh; /* 100% высоты окна браузера */
+    min-height: 600px;
+    background-color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.hero-content {
+    text-align: center;
+    width: 100%;
+}
+
+/* Стиль для анимированного текста */
+.stretching-text {
+    font-weight: 900;
+    font-size: clamp(3rem, 12vw, 9rem); /* адаптивный размер: минимум 3rem, максимум 9rem */
+    color: #000000;
+    letter-spacing: normal;
+    transform: scaleY(1);
+    transform-origin: center center;
+    transition: all 0.03s linear; /* очень быстрое обновление при скролле */
+    margin: 0;
+    line-height: 1.2;
+}
+
+/* Подсказка скролла */
+.scroll-hint {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    font-weight: 400;
+    color: #666;
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(10px); }
+}
+
+/* Пример стилей для блока about */
+.about {
+    padding: 100px 20px;
+    background-color: #FFFFFF;
+    border-top: 1px solid #eee;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.about-text {
+    font-size: 1.5rem;
+    line-height: 1.4;
+    font-weight: 400;
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .about-text {
+        font-size: 1.2rem;
+    }
+    
+    .scroll-hint {
+        font-size: 12px;
+    }
+}
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 40px;
+}
+
+.video-item video {
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+}
