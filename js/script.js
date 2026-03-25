@@ -1,4 +1,4 @@
-// Анимация растяжения и исчезновения текста при скролле
+// Анимация растяжения текста при скролле (эффект жевачки)
 function updateTextStretch() {
     const textEl = document.getElementById('animatedText');
     if (!textEl) return;
@@ -11,7 +11,7 @@ function updateTextStretch() {
     
     let progress = 0;
     
-    // Вычисляем прогресс скролла (0 = блок полностью виден, 1 = блок полностью скрыт)
+    // Вычисляем прогресс скролла: 0 = блок полностью виден, 1 = блок полностью скрыт
     if (rect.bottom <= 0) {
         progress = 1;
     } else if (rect.top >= windowHeight) {
@@ -22,20 +22,15 @@ function updateTextStretch() {
         progress = Math.min(1, rect.top / windowHeight);
     }
     
-    // Растяжение: максимальное 3.5 (в 3.5 раза выше) при progress = 0
-    const stretch = 1 + ((1 - progress) * 2.5);
+    // Растяжение по Y: от 1 (норма) до 2.8 (максимум)
+    const stretch = 1 + (progress * 1.8);
     textEl.style.transform = `scaleY(${stretch})`;
+    textEl.style.transformOrigin = "center bottom";
     
-    // Межбуквенное расстояние: максимальное 25px при progress = 0
-    const letterSpacing = Math.floor((1 - progress) * 25);
-    textEl.style.letterSpacing = `${letterSpacing}px`;
-    
-    // Прозрачность: исчезает при скролле
-    const opacity = 1 - progress;
-    textEl.style.opacity = opacity;
+    // Сохраняем цвет белым
+    textEl.style.color = "#FFFFFF";
 }
 
-// Запускаем функцию
 window.addEventListener('scroll', updateTextStretch);
 window.addEventListener('resize', updateTextStretch);
 document.addEventListener('DOMContentLoaded', updateTextStretch);
