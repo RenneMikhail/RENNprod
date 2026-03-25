@@ -1,5 +1,4 @@
-/* RESET */
- {
+* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -7,12 +6,11 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #000;
+    background: #000;
     color: #fff;
     overflow-x: hidden;
 }
 
-/* ВИДЕО ФОН */
 .bg-video {
     position: fixed;
     top: 0;
@@ -24,19 +22,16 @@ body {
     opacity: 0.6;
 }
 
-/* WEBGL КАНВАС */
 .hero-canvas {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100vh;
-    display: block;
     z-index: 1;
     pointer-events: none;
 }
 
-/* ТЕКСТОВЫЙ СЛОЙ */
 .hero-text-overlay {
     position: fixed;
     top: 0;
@@ -54,22 +49,16 @@ body {
 .hero-title {
     font-size: 8vw;
     font-weight: 900;
-    letter-spacing: -0.02em;
     color: #fff;
-    text-align: center;
     transition: all 0.1s linear;
-    will-change: transform, opacity, font-size;
-    text-shadow: 0 0 30px rgba(0,0,0,0.5);
 }
 
-/* ОСНОВНОЙ КОНТЕНТ */
 .content-wrapper {
     position: relative;
     z-index: 10;
     background: linear-gradient(to bottom, rgba(0,0,0,0.8), #000);
     margin-top: 100vh;
     padding: 4rem 2rem;
-    min-height: 100vh;
 }
 
 .intro {
@@ -83,16 +72,13 @@ body {
     font-size: 3rem;
     font-weight: 700;
     margin-bottom: 1.5rem;
-    line-height: 1.2;
 }
 
 .intro p {
     font-size: 1.25rem;
-    line-height: 1.5;
     color: #ccc;
 }
 
-/* ВИДЕО ГАЛЕРЕЯ */
 .video-showcase {
     max-width: 1200px;
     margin: 4rem auto;
@@ -102,43 +88,27 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 2rem;
-    padding: 2rem 0;
 }
 
 .video-item {
     background: #111;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    transition: transform 0.3s ease;
-}
-
-.video-item:hover {
-    transform: translateY(-10px);
 }
 
 .demo-video {
     width: 100%;
     display: block;
-    border-radius: 12px;
 }
 
-/* АДАПТИВНОСТЬ */
 @media (max-width: 768px) {
     .hero-title {
         font-size: 12vw;
     }
-    
     .intro h2 {
         font-size: 2rem;
     }
-    
     .content-wrapper {
         padding: 2rem 1rem;
-    }
-    
-    .video-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
     }
 }
