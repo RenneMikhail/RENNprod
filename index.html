@@ -8,24 +8,42 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- ВИДЕО ФОН (видео 5) -->
     <video autoplay muted loop playsinline id="bgVideo" class="bg-video">
-        <source src="video/1.mp4" type="video/mp4">
+        <source src="video/5.mp4" type="video/mp4">
     </video>
     
+    <!-- 3D КАНВАС -->
     <canvas id="bgCanvas" class="hero-canvas"></canvas>
     
+    <!-- ТЕКСТОВЫЙ СЛОЙ -->
     <div class="hero-text-overlay">
         <div class="hero-title">RENNprod</div>
     </div>
 
+    <!-- ОСНОВНОЙ КОНТЕНТ -->
     <div class="content-wrapper">
+        
+        <!-- БЛОК 1: ОПИСАНИЕ -->
         <section class="intro">
             <h2>Снимаем рекламу, клипы, кино и мероприятия.</h2>
             <p>Управляем съёмкой от идеи до монтажа.<br>Технологии, команда, опыт работы с топ-брендами и телеканалами.</p>
         </section>
         
+        <!-- БЛОК 2: ПРОДАКШЕН ПОЛНОГО ЦИКЛА -->
+        <section class="full-cycle">
+            <h3>Продакшен полного цикла</h3>
+            <p>воплощаем идеи в реальность</p>
+        </section>
+        
+        <!-- БЛОК 3: ВИДЕО (1,2,3,4) -->
         <section class="video-showcase">
             <div class="video-grid">
+                <div class="video-item">
+                    <video class="demo-video" controls>
+                        <source src="video/1.mp4" type="video/mp4">
+                    </video>
+                </div>
                 <div class="video-item">
                     <video class="demo-video" controls>
                         <source src="video/2.mp4" type="video/mp4">
@@ -42,6 +60,42 @@
                     </video>
                 </div>
             </div>
+        </section>
+        
+        <!-- БЛОК 4: ПАРТНЕРЫ -->
+        <section class="partners">
+            <h3>Наши партнеры</h3>
+            <div class="partner-grid">
+                <div class="partner">ТНТ</div>
+                <div class="partner">СТС</div>
+                <div class="partner">HIPP</div>
+                <div class="partner">Я</div>
+                <div class="partner">Т</div>
+                <div class="partner">Метро</div>
+            </div>
+        </section>
+        
+        <!-- БЛОК 5: О СОЗДАТЕЛЕ -->
+        <section class="about-creator">
+            <h3>О создателе</h3>
+            <div class="creator-content">
+                <p><strong>Михаил Ренне</strong> — оператор-постановщик, основатель RENNprod.</p>
+                <p>Снимаю кино, рекламу, клипы и шоу более 5 лет. Моя команда — 14+ специалистов: от механиков камеры до AI-художников.</p>
+                <p>Работал с брендами: Яндекс Музыка, HIPP, Почта России, MEGA, телеканалами ТНТ и СТС. Среди звезд — Сергей Бурунов, Сергей Безруков, Лолита и другие.</p>
+                <p>Мой путь: от кадета и командира взвода до оператора, снимающего по всему миру. Верю, что качественный контент меняет реальность.</p>
+            </div>
+        </section>
+        
+        <!-- БЛОК 6: ФОРМА КОНТАКТОВ -->
+        <section class="contact-form">
+            <h3>Свяжитесь с нами</h3>
+            <form id="contactForm">
+                <input type="text" placeholder="Какая задача?" required>
+                <input type="tel" placeholder="Телефон" required>
+                <input type="email" placeholder="Почта" required>
+                <input type="text" placeholder="Telegram" required>
+                <button type="submit">Отправить</button>
+            </form>
         </section>
     </div>
 
