@@ -19,9 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
             heroTitle.style.fontSize = `${currentSize}vw`;
             
             // 2. Текст смещается вверх (начальная позиция - верх экрана)
-            // При progress=0: top = 15vh, при progress=1: top = -20vh (уезжает)
-            const startTop = 15; // % от высоты экрана
-            const endTop = -30;   // % (уходит вверх)
+            const startTop = 15;
+            const endTop = -30;
             let currentTop = startTop - (progress * (startTop - endTop));
             heroTitle.style.top = `${currentTop}vh`;
             
@@ -29,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
             heroTitle.style.opacity = 1 - progress;
             
             // 4. Растяжение по вертикали (scaleY)
-            // При progress=0: scaleY=1, при progress=1: scaleY=2.5
             const scaleY = 1 + (progress * 1.5);
             heroTitle.style.transform = `scaleY(${scaleY})`;
             heroTitle.style.transformOrigin = "top center";
