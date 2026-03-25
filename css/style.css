@@ -1,4 +1,3 @@
-/* Сброс и базовые стили */
 * {
     margin: 0;
     padding: 0;
@@ -12,8 +11,20 @@ body {
     overflow-x: hidden;
 }
 
-/* Блок с огромным логотипом */
-.hero {
+/* WebGL канвас поверх всего, но под текстом */
+.hero-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    display: block;
+    z-index: 1;
+    pointer-events: none; /* Чтобы не мешал скроллу */
+}
+
+/* Текстовый слой поверх 3D */
+.hero-text-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -22,32 +33,31 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #000;
-    z-index: 10;
-    pointer-events: none; /* Чтобы текст не мешал кликам, если они появятся */
+    z-index: 2;
+    pointer-events: none;
+    mix-blend-mode: difference; /* Эффектный контраст */
 }
 
-.hero-text {
-    font-size: 15vw; /* Изначально огромный размер */
+.hero-title {
+    font-size: 8vw;
     font-weight: 900;
     letter-spacing: -0.02em;
-    white-space: nowrap;
     color: #fff;
-    transition: all 0.1s linear; /* Плавное изменение при скролле */
-    will-change: transform, font-size;
+    text-align: center;
+    transition: all 0.1s linear;
+    will-change: transform, opacity;
 }
 
-/* Обертка с основным контентом */
+/* Основной контент */
 .content-wrapper {
     position: relative;
-    z-index: 20;
+    z-index: 10;
     background-color: #000;
-    margin-top: 100vh; /* Отступ, чтобы контент начался после hero-блока */
+    margin-top: 100vh;
     padding: 4rem 2rem;
     min-height: 100vh;
 }
 
-/* Стили для твоего существующего контента */
 .intro {
     max-width: 1200px;
     margin: 0 auto;
@@ -68,21 +78,9 @@ body {
     color: #ccc;
 }
 
-.placeholder-block {
-    max-width: 1200px;
-    margin: 6rem auto;
-    text-align: center;
-    padding: 4rem;
-    border-top: 1px solid #333;
-}
-
-/* Адаптивность */
 @media (max-width: 768px) {
-    .hero-text {
-        font-size: 12vw; /* Чуть меньше на мобилках, но всё ещё большой */
-        white-space: normal;
-        text-align: center;
-        padding: 0 1rem;
+    .hero-title {
+        font-size: 12vw;
     }
     .intro h2 {
         font-size: 2rem;
