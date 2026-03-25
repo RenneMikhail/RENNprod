@@ -8,20 +8,48 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Видео фон (первый баннер) -->
+    <video autoplay muted loop playsinline id="bgVideo" class="bg-video">
+        <source src="video/1.mp4" type="video/mp4">
+    </video>
+    
+    <!-- WebGL канвас для 3D (будет поверх видео) -->
     <canvas id="bgCanvas" class="hero-canvas"></canvas>
     
+    <!-- Текстовый слой -->
     <div class="hero-text-overlay" id="heroTextOverlay">
         <div class="hero-title">RENNprod</div>
     </div>
 
+    <!-- Основной контент -->
     <div class="content-wrapper" id="contentWrapper">
         <section class="intro">
             <h2>Снимаем рекламу, клипы, кино и мероприятия.</h2>
             <p>Управляем съёмкой от идеи до монтажа.<br>Технологии, команда, опыт работы с топ-брендами и телеканалами.</p>
         </section>
+        
+        <!-- Блок с видео 2, 3, 4 -->
+        <section class="video-showcase">
+            <div class="video-grid">
+                <div class="video-item">
+                    <video class="demo-video" controls>
+                        <source src="video/2.mp4" type="video/mp4">
+                    </video>
+                </div>
+                <div class="video-item">
+                    <video class="demo-video" controls>
+                        <source src="video/3.mp4" type="video/mp4">
+                    </video>
+                </div>
+                <div class="video-item">
+                    <video class="demo-video" controls>
+                        <source src="video/4.mp4" type="video/mp4">
+                    </video>
+                </div>
+            </div>
+        </section>
     </div>
 
-    <!-- Импорт Three.js как модуль -->
     <script type="importmap">
         {
             "imports": {
