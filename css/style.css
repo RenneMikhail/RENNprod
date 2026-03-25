@@ -49,20 +49,38 @@ body {
     text-align: center;
     width: 100%;
     z-index: 3;
+    padding: 0 20px;
 }
 
 .stretching-text {
     font-weight: 900;
-    font-size: clamp(2.5rem, 10vw, 9rem);
     color: #FFFFFF;
-    letter-spacing: -0.02em;
-    transform: scaleY(1);
-    transform-origin: center bottom;
-    transition: all 0.02s linear;
+    text-shadow: 0 0 20px rgba(0,0,0,0.5);
     margin: 0;
     line-height: 1;
-    text-shadow: 0 0 20px rgba(0,0,0,0.5);
-    white-space: nowrap;
+    transform-origin: center bottom;
+    transition: all 0.02s linear;
+    display: inline-block;
+}
+
+/* Десктоп версия */
+@media (min-width: 769px) {
+    .stretching-text {
+        font-size: clamp(5rem, 10vw, 9rem);
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+    }
+}
+
+/* Мобильная версия - буквы плотно и влезают в экран */
+@media (max-width: 768px) {
+    .stretching-text {
+        font-size: 2.2rem;
+        letter-spacing: -0.05em;
+        white-space: normal;
+        word-break: keep-all;
+        max-width: 100%;
+    }
 }
 
 .scroll-hint {
@@ -191,18 +209,6 @@ body {
 }
 
 @media (max-width: 768px) {
-    .stretching-text {
-        font-size: clamp(1.8rem, 8vw, 3rem);
-        letter-spacing: -0.03em;
-        white-space: normal;
-        word-break: keep-all;
-        padding: 0 10px;
-    }
-    
-    .hero-content {
-        padding: 0 15px;
-    }
-    
     .about-text {
         font-size: 1.2rem;
     }
