@@ -34,7 +34,28 @@
         word-break: keep-all;
         max-width: 100%;
     }
-    
+    .video-item {
+    position: absolute;
+    width: 570px; /* Было 380px, увеличили в 1.5 раза */
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease, z-index 0.3s;
+}
+
+@media (max-width: 900px) {
+    .video-item {
+        width: 450px; /* Было 300px, увеличили в 1.5 раза */
+    }
+}
+
+@media (max-width: 768px) {
+    .video-item {
+        position: static;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+}
     .hero-content {
         padding-top: 60px;
     }
