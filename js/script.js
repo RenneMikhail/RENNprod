@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'https://unpkg.com/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
 document.addEventListener('DOMContentLoaded', () => {
     const heroTitle = document.querySelector('.hero-title');
     const bgVideo = document.getElementById('bgVideo');
