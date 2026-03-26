@@ -10,14 +10,19 @@
 <body>
     <!-- НАВИГАЦИОННОЕ МЕНЮ -->
     <nav class="main-nav">
-        <div class="nav-container">
-            <button class="nav-btn" data-section="video11">Логотип</button>
-            <button class="nav-btn" data-section="about">Мы</button>
-            <button class="nav-btn" data-section="works">Работы</button>
-            <button class="nav-btn" data-section="model3d">Домик</button>
-            <button class="nav-btn" data-section="mikhail">Михаил</button>
+    <div class="nav-container">
+        <!-- ЛОГОТИП В ВИДЕ ВИДЕО -->
+        <div class="logo-btn" data-section="video11">
+            <video autoplay muted loop playsinline class="logo-video">
+                <source src="video/11.mp4" type="video/mp4">
+            </video>
         </div>
-    </nav>
+        <button class="nav-btn" data-section="about">Мы</button>
+        <button class="nav-btn" data-section="works">Работы</button>
+        <button class="nav-btn" data-section="model3d">Домик</button>
+        <button class="nav-btn" data-section="mikhail">Михаил</button>
+    </div>
+</nav>
     
     <!-- ВИДЕО ФОН (видео 5) -->
     <video autoplay muted loop playsinline id="bgVideo" class="bg-video">
