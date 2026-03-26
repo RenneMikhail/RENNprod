@@ -8,6 +8,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- НАВИГАЦИОННОЕ МЕНЮ -->
+    <nav class="main-nav">
+        <div class="nav-container">
+            <button class="nav-btn" data-section="video11">Логотип</button>
+            <button class="nav-btn" data-section="about">Мы</button>
+            <button class="nav-btn" data-section="works">Работы</button>
+            <button class="nav-btn" data-section="model3d">Домик</button>
+            <button class="nav-btn" data-section="mikhail">Михаил</button>
+        </div>
+    </nav>
+    
     <!-- ВИДЕО ФОН (видео 5) -->
     <video autoplay muted loop playsinline id="bgVideo" class="bg-video">
         <source src="video/5.mp4" type="video/mp4">
@@ -20,18 +31,50 @@
     <!-- ОСНОВНОЙ КОНТЕНТ -->
     <div class="content-wrapper">
     <section class="intro">...</section>
-    
-    <section class="model-showcase" id="modelShowcase">
-        <model-viewer src="models/22.gltf" ... ></model-viewer>
+        <!-- БЛОК ВИДЕО 11.mp4 (ПЕРВЫЙ БЛОК) -->
+    <section id="video11" class="video-block">
+        <video autoplay muted loop playsinline class="fullscreen-video">
+            <source src="video/11.mp4" type="video/mp4">
+        </video>
+    </section>
+            <section id="about" class="intro">
+        <h2>Снимаем рекламу, клипы, кино и мероприятия.</h2>
+        <p>Управляем съёмкой от идеи до монтажа.<br>Технологии, команда, опыт работы с топ-брендами и телеканалами.</p>
+    </section>
+        
+       <section id="model3d" class="model-showcase">
+        <model-viewer 
+            src="models/22.gltf" 
+            alt="3D модель"
+            auto-rotate
+            rotation-per-second="30deg"
+            scale="1.2 1.2 1.2"
+            style="width: 100%; height: 80vh;"
+            background-color="transparent"
+            exposure="1.5"
+            shadow-intensity="0.3"
+            camera-orbit="0deg 65deg 2.5m"
+            camera-target="0 0 0"
+            id="scrollingModel"
+        ></model-viewer>
     </section>
     
     <section class="full-cycle">...</section>
     
-    <section class="video-showcase">...</section>
+        <section id="works" class="video-showcase">
+        <div class="video-grid">
+            <!-- здесь твои видео 1,2,3,4 -->
+        </div>
+    </section>
     
     <section class="partners">...</section>
     
-    <section class="about-creator">...</section>
+        <section id="mikhail" class="about-creator">
+        <h3>О создателе</h3>
+        <div class="creator-content">
+            <!-- текст о тебе -->
+        </div>
+    </section>
     
     <section class="contact-form">...</section>
 </div>
