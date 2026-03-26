@@ -5,23 +5,40 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentProgress = 0;
     
     function updateAnimation() {
-            // ========== НАВИГАЦИЯ (ДОБАВИТЬ ВНУТРЬ DOMContentLoaded) ==========
-    const navButtons = document.querySelectorAll('.nav-btn');
-    
-    navButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-            const sectionId = button.getAttribute('data-section');
-            const targetSection = document.getElementById(sectionId);
-            
-            if (targetSection) {
-                targetSection.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
-        });
+           // ========== НАВИГАЦИЯ ==========
+// Кнопки текстовые
+const navButtons = document.querySelectorAll('.nav-btn');
+// Логотип (видео)
+const logoBtn = document.querySelector('.logo-btn');
+
+// Обработка текстовых кнопок
+navButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+        const sectionId = button.getAttribute('data-section');
+        const targetSection = document.getElementById(sectionId);
+        
+        if (targetSection) {
+            targetSection.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
     });
-    // ========== КОНЕЦ НАВИГАЦИИ ==========
+});
+
+// Обработка логотипа (возврат на главную)
+if (logoBtn) {
+    logoBtn.addEventListener('click', () => {
+        const mainBlock = document.getElementById('video11');
+        if (mainBlock) {
+            mainBlock.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+}
+// ========== КОНЕЦ НАВИГАЦИИ ==========
         const scrollY = window.scrollY;
         const windowHeight = window.innerHeight;
         const progress = Math.min(scrollY / windowHeight, 1);
