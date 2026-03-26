@@ -5,6 +5,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentProgress = 0;
     
     function updateAnimation() {
+            // ========== НАВИГАЦИЯ (ДОБАВИТЬ ВНУТРЬ DOMContentLoaded) ==========
+    const navButtons = document.querySelectorAll('.nav-btn');
+    
+    navButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            const sectionId = button.getAttribute('data-section');
+            const targetSection = document.getElementById(sectionId);
+            
+            if (targetSection) {
+                targetSection.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+    // ========== КОНЕЦ НАВИГАЦИИ ==========
         const scrollY = window.scrollY;
         const windowHeight = window.innerHeight;
         const progress = Math.min(scrollY / windowHeight, 1);
