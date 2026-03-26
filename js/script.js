@@ -1,61 +1,38 @@
 document.addEventListener('DOMContentLoaded', () => {
     const heroTitle = document.querySelector('.hero-title');
     const bgVideo = document.getElementById('bgVideo');
-    const modelViewer = document.getElementById('scrollingModel');
-    const modelSection = document.getElementById('modelShowcase');
+    let ticking = false;
+    let currentProgress = 0;
     
     function updateAnimation() {
         const scrollY = window.scrollY;
         const windowHeight = window.innerHeight;
         const progress = Math.min(scrollY / windowHeight, 1);
         
+        currentProgress = progress;
         window.scrollProgress = progress;
         
-        // Анимация текста RENNprod
         if (heroTitle) {
+            // Плавное уменьшение шрифта
             const startSize = 12;
             const endSize = 2;
             let currentSize = startSize - (progress * (startSize - endSize));
             currentSize = Math.max(endSize, currentSize);
             heroTitle.style.fontSize = `${currentSize}vw`;
             
+            // Плавное смещение вверх
             const startTop = 15;
             const endTop = -30;
             let currentTop = startTop - (progress * (startTop - endTop));
             heroTitle.style.top = `${currentTop}vh`;
             
+            // Плавное изменение прозрачности
             heroTitle.style.opacity = 1 - progress;
             
+            // Плавное растяжение
             const scaleY = 1 + (progress * 1.5);
             heroTitle.style.transform = `scaleY(${scaleY})`;
             heroTitle.style.transformOrigin = "top center";
-        }
-        
-        // Анимация модели во втором блоке
-        if (modelViewer && modelSection) {
-            const sectionTop = modelSection.offsetTop;
-            const sectionHeight = modelSection.offsetHeight;
-            const scrollPosition = scrollY + windowHeight;
-            
-            // Когда пользователь прокручивает блок с моделью
-            let modelProgress = 0;
-            if (scrollY + windowHeight > sectionTop && scrollY < sectionTop + sectionHeight) {
-                // Вычисляем прогресс внутри блока (0 = начало блока, 1 = конец блока)
-                const scrollInSection = scrollY - sectionTop;
-                modelProgress = Math.min(Math.max(scrollInSection / sectionHeight, 0), 1);
-                
-                // Растягиваем модель при скролле внутри блока
-                const scaleStretch = 1 + (modelProgress * 0.8);
-                modelViewer.style.transform = `scaleY(${scaleStretch})`;
-                modelViewer.style.transformOrigin = "center center";
-                
-                // Увеличиваем скорость вращения при скролле
-                const rotationSpeed = 20 + (modelProgress * 30);
-                modelViewer.setAttribute('rotation-per-second', `${rotationSpeed}deg`);
-            } else {
-                modelViewer.style.transform = `scaleY(1)`;
-                modelViewer.setAttribute('rotation-per-second', `20deg`);
-            }
         }
         
         if (bgVideo) {
@@ -63,12 +40,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // Обновляем при скролле
-    window.addEventListener('scroll', updateAnimation);
-    updateAnimation();
-    
-    // Обновляем при изменении размера окна (для пересчета позиций)
-    window.addEventListener('resize', () => {
-        updateAnimation();
+    // Оптимизация с requestAnimationFrame для плавности
+    window.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(() => {
+                updateAnimation();
+                ticking = false;
+            });
+            ticking = true;
+        }
     });
+    
+    // Запускаем один раз для начального состояния
+    updateAnimation();
 });
