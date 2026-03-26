@@ -8,29 +8,42 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- НАВИГАЦИОННОЕ МЕНЮ -->
+    <!-- ========== НАВИГАЦИОННОЕ МЕНЮ ========== -->
     <nav class="main-nav">
-    <div class="nav-container">
-        <!-- ЛОГОТИП В ВИДЕ ВИДЕО -->
-        <div class="logo-btn" data-section="video11">
-    <video autoplay muted loop playsinline class="logo-video" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-        <source src="video/11.mp4" type="video/mp4">
-    </video>
-    <div style="display: none; align-items: center; justify-content: center; width: 100%; height: 100%; background: #333; color: white; font-size: 12px;">
-        R
-    </div>
-</div>
-        <button class="nav-btn" data-section="about">Мы</button>
-        <button class="nav-btn" data-section="works">Работы</button>
-        <button class="nav-btn" data-section="model3d">Домик</button>
-        <button class="nav-btn" data-section="mikhail">Михаил</button>
-    </div>
-</nav>
+        <div class="nav-container">
+            <div class="logo-btn" data-section="video11">
+                <video autoplay muted loop playsinline class="logo-video">
+                    <source src="video/11.mp4" type="video/mp4">
+                </video>
+            </div>
+            <button class="nav-btn" data-section="about">Мы</button>
+            <button class="nav-btn" data-section="works">Работы</button>
+            <button class="nav-btn" data-section="model3d">Домик</button>
+            <button class="nav-btn" data-section="mikhail">Михаил</button>
+        </div>
+    </nav>
     
     <!-- ВИДЕО ФОН (видео 5) -->
     <video autoplay muted loop playsinline id="bgVideo" class="bg-video">
         <source src="video/5.mp4" type="video/mp4">
     </video>
+    
+    <!-- 3D МОДЕЛЬ через model-viewer -->
+    <model-viewer 
+        src="models/22.gltf" 
+        alt="3D модель"
+        auto-rotate
+        rotation-per-second="30deg"
+        scale="1.2 1.2 1.2"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 1; pointer-events: none; opacity: 0.85;"
+        background-color="transparent"
+        exposure="1.5"
+        shadow-intensity="0.3"
+        camera-orbit="0deg 65deg 2.5m"
+        camera-target="0 0 0"
+        id="scrollingModel"
+    ></model-viewer>
+    
     <!-- ТЕКСТОВЫЙ СЛОЙ -->
     <div class="hero-text-overlay">
         <div class="hero-title">RENNprod</div>
@@ -38,112 +51,68 @@
 
     <!-- ОСНОВНОЙ КОНТЕНТ -->
     <div class="content-wrapper">
-    <section class="intro">...</section>
-        <!-- БЛОК ВИДЕО 11.mp4 (ПЕРВЫЙ БЛОК) -->
-    <section id="video11" class="video-block">
-        <video autoplay muted loop playsinline class="fullscreen-video">
-            <source src="video/11.mp4" type="video/mp4">
-        </video>
-    </section>
-            <section id="about" class="intro">
-        <h2>Снимаем рекламу, клипы, кино и мероприятия.</h2>
-        <p>Управляем съёмкой от идеи до монтажа.<br>Технологии, команда, опыт работы с топ-брендами и телеканалами.</p>
-    </section>
         
-       <section id="model3d" class="model-showcase">
-        <model-viewer 
-            src="models/22.gltf" 
-            alt="3D модель"
-            auto-rotate
-            rotation-per-second="30deg"
-            scale="1.2 1.2 1.2"
-            style="width: 100%; height: 80vh;"
-            background-color="transparent"
-            exposure="1.5"
-            shadow-intensity="0.3"
-            camera-orbit="0deg 65deg 2.5m"
-            camera-target="0 0 0"
-            id="scrollingModel"
-        ></model-viewer>
-    </section>
-    
-    <section class="full-cycle">...</section>
-    
-        <section id="works" class="video-showcase">
-        <div class="video-grid">
-            <!-- здесь твои видео 1,2,3,4 -->
-        </div>
-    </section>
-    
-    <section class="partners">...</section>
-    
-        <section id="mikhail" class="about-creator">
-        <h3>О создателе</h3>
-        <div class="creator-content">
-            <!-- текст о тебе -->
-        </div>
-    </section>
-    
-    <section class="contact-form">...</section>
-</div>
+        <!-- БЛОК ВИДЕО 11.mp4 (ПЕРВЫЙ БЛОК) -->
+        <section id="video11" class="video-block">
+            <video autoplay muted loop playsinline class="fullscreen-video">
+                <source src="video/11.mp4" type="video/mp4">
+            </video>
+        </section>
         
         <!-- БЛОК 1: ОПИСАНИЕ -->
-<section class="intro">
-    <h2>Снимаем рекламу, клипы, кино и мероприятия.</h2>
-    <p>Управляем съёмкой от идеи до монтажа.<br>Технологии, команда, опыт работы с топ-брендами и телеканалами.</p>
-</section>
-
-<!-- НОВЫЙ БЛОК 2: 3D МОДЕЛЬ -->
-<section class="model-showcase" id="modelShowcase">
-    <model-viewer 
-    src="models/22.gltf" 
-    alt="3D модель"
-    auto-rotate
-    rotation-per-second="30deg"
-    camera-controls
-    disable-zoom
-    scale="1.2 1.2 1.2"
-    style="width: 100%; height: 80vh;"
-    background-color="transparent"
-    exposure="1.5"
-    shadow-intensity="0.3"
-    camera-orbit="0deg 65deg 2.5m"
-    camera-target="0 0 0"
-    id="scrollingModel"
-></model-viewer>
-</section>
-
-<!-- БЛОК 3: ПРОДАКШЕН ПОЛНОГО ЦИКЛА -->
-<section class="full-cycle">
-    <h3>Продакшен полного цикла</h3>
-    <p>воплощаем идеи в реальность</p>
-</section>
+        <section id="about" class="intro">
+            <h2>Снимаем рекламу, клипы, кино и мероприятия.</h2>
+            <p>Управляем съёмкой от идеи до монтажа.<br>Технологии, команда, опыт работы с топ-брендами и телеканалами.</p>
+        </section>
+        
+        <!-- БЛОК 2: ПРОДАКШЕН ПОЛНОГО ЦИКЛА -->
+        <section class="full-cycle">
+            <h3>Продакшен полного цикла</h3>
+            <p>воплощаем идеи в реальность</p>
+        </section>
+        
+        <!-- БЛОК 3: 3D МОДЕЛЬ -->
+        <section id="model3d" class="model-showcase">
+            <model-viewer 
+                src="models/22.gltf" 
+                alt="3D модель"
+                auto-rotate
+                rotation-per-second="30deg"
+                scale="1.2 1.2 1.2"
+                style="width: 100%; height: 80vh;"
+                background-color="transparent"
+                exposure="1.5"
+                shadow-intensity="0.3"
+                camera-orbit="0deg 65deg 2.5m"
+                camera-target="0 0 0"
+            ></model-viewer>
+        </section>
         
         <!-- БЛОК 4: ВИДЕО (1,2,3,4) -->
-       <section class="video-showcase">
-    <div class="video-grid">
-        <div class="video-item">
-            <video class="demo-video" autoplay muted loop playsinline>
-                <source src="video/1.mp4" type="video/mp4">
-            </video>
-        </div>
-        <div class="video-item">
-            <video class="demo-video" autoplay muted loop playsinline>
-                <source src="video/2.mp4" type="video/mp4">
-            </video>
-        </div>
-        <div class="video-item">
-            <video class="demo-video" autoplay muted loop playsinline>
-                <source src="video/3.mp4" type="video/mp4">
-            </video>
-        </div>
-        <div class="video-item">
-            <video class="demo-video" autoplay muted loop playsinline>
-                <source src="video/4.mp4" type="video/mp4">
-            </video>
-        </div>
-    </div>
-</section>
+        <section id="works" class="video-showcase">
+            <div class="video-grid">
+                <div class="video-item">
+                    <video class="demo-video" autoplay muted loop playsinline>
+                        <source src="video/1.mp4" type="video/mp4">
+                    </video>
+                </div>
+                <div class="video-item">
+                    <video class="demo-video" autoplay muted loop playsinline>
+                        <source src="video/2.mp4" type="video/mp4">
+                    </video>
+                </div>
+                <div class="video-item">
+                    <video class="demo-video" autoplay muted loop playsinline>
+                        <source src="video/3.mp4" type="video/mp4">
+                    </video>
+                </div>
+                <div class="video-item">
+                    <video class="demo-video" autoplay muted loop playsinline>
+                        <source src="video/4.mp4" type="video/mp4">
+                    </video>
+                </div>
+            </div>
+        </section>
         
         <!-- БЛОК 5: ПАРТНЕРЫ -->
         <section class="partners">
@@ -159,7 +128,7 @@
         </section>
         
         <!-- БЛОК 6: О СОЗДАТЕЛЕ -->
-        <section class="about-creator">
+        <section id="mikhail" class="about-creator">
             <h3>О создателе</h3>
             <div class="creator-content">
                 <p><strong>Михаил Ренне</strong> — оператор-постановщик, основатель RENNprod.</p>
@@ -182,9 +151,7 @@
         </section>
     </div>
 
-    <!-- Подключаем model-viewer -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
     <script src="js/script.js"></script>
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 </body>
 </html>
