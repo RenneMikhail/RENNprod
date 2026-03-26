@@ -265,3 +265,68 @@ body {
         padding: 2rem 1rem;
     }
 }
+/* ========== НАВИГАЦИОННОЕ МЕНЮ (ДОБАВИТЬ В КОНЕЦ CSS) ========== */
+.main-nav {
+    position: fixed;
+    top: 20px;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(10px);
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.nav-container {
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-around;
+    gap: 1rem;
+    padding: 0 1rem;
+}
+
+.nav-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.nav-btn:hover {
+    background: rgba(255,51,102,0.3);
+    transform: translateY(-2px);
+}
+
+/* БЛОК С ВИДЕО 11.mp4 */
+.video-block {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+}
+
+.fullscreen-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+@media (max-width: 768px) {
+    .nav-container {
+        gap: 0.5rem;
+    }
+    .nav-btn {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
+}
+/* ========== КОНЕЦ ДОБАВЛЕННЫХ СТИЛЕЙ ========== */
