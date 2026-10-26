@@ -1,0 +1,45 @@
+{
+  "status": "implemented-and-browser-verified",
+  "requested_mount": "/shooting/",
+  "assets": [
+    "index.html",
+    "styles.css",
+    "app.js",
+    "locales.js"
+  ],
+  "html_session_injection": {
+    "placeholder": "__SESSION__",
+    "meta_name": "rp-local-session"
+  },
+  "api": "POST /api/intake",
+  "headers": [
+    "Content-Type: application/json",
+    "X-Local-Session: injected meta token"
+  ],
+  "payload": {
+    "kind": "client",
+    "source": "shooting-landing",
+    "service": "professional|reels|commercial|art",
+    "locale": "ru|en",
+    "idea": "max 1200 chars",
+    "test": true
+  },
+  "required_response": {
+    "status": "saved",
+    "id": "SQLite intake row id"
+  },
+  "requirements": [
+    "Exact whitelist; no directory traversal or arbitrary files",
+    "Retain existing Origin and session checks; no CORS expansion",
+    "Validate service, kind, idea length server-side",
+    "Panel must show intake records",
+    "Do not log or store session in integration file"
+  ],
+  "coordination": "CRM backend owner should patch server.py; shooting agent does not overwrite it.",
+  "backend_patch": "Minimal whitelist /shooting mount and intake id/validation added to server.py; existing /crm preserved.",
+  "server": "http://127.0.0.1:8766",
+  "test_ids": [
+    "03512bea-4e74-4fe6-bad8-4dad78006a2d",
+    "05cd4f15-d361-43b9-8ece-2d4a1c299f9e"
+  ]
+}

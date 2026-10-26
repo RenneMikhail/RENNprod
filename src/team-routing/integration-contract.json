@@ -1,0 +1,46 @@
+{
+  "version": "team-routing.local.v1",
+  "source_of_truth": "data/routing.sqlite3; production PostgreSQL",
+  "status": "standalone; CRM adapter pending; local-session is not production auth",
+  "entities": {
+    "specialist": ["id UUID", "name", "profile structured JSON", "verified human qualification boolean", "telegram_id private unique nullable", "created_at"],
+    "skill": ["code stable enum"],
+    "availability": ["id", "specialist_id", "start UTC", "end UTC exclusive", "timezone IANA", "active"],
+    "order": ["id", "kind enum or human_review", "city", "start UTC", "end UTC", "brief", "auto_assign owner rule", "status", "version"],
+    "role_slot": ["id", "order_id", "role", "skills", "budget PRIVATE", "status"],
+    "offer": ["id", "slot_id", "specialist_id", "version", "terms PRIVATE immutable snapshot", "deadline", "status"],
+    "assignment": ["id", "slot_id UNIQUE", "specialist_id", "offer_id UNIQUE", "confirmed_at"],
+    "manager_acceptance": ["id", "order_id", "specialist_id", "status; at most one accepted per order"],
+    "workspace": ["id", "order_id UNIQUE", "created_at"],
+    "membership": ["workspace_id + specialist_id UNIQUE", "role"],
+    "notification": ["id", "order_id", "specialist_id", "event_key UNIQUE", "channel", "status", "ack_at", "deadline"]
+  },
+  "local_api": {
+    "GET /api/specialists": "Owner-only local integration listing; profile JSON parsed; requires X-Local-Session; no CORS access to another prototype",
+    "GET /api/specialists/{id}": "Owner-only local card; same privacy limitation",
+    "POST /api/register": "structured profile; no verified qualification or contact flag accepted",
+    "GET /api/state": "Trusted local simulation console only; NEVER expose as public production endpoint",
+    "POST /api/route": "order ID; idempotent pending offers per slot/person/version",
+    "POST /api/respond": "offer, actor, decision, version, key; production actor from authenticated identity",
+    "POST /api/manager": "invitation, actor, key; explicit acceptance creates workspace",
+    "POST /api/select": "offer, actor, key; accepted manager or owner only; accepted exact conditions required",
+    "GET /api/workspace?order=&actor=": "membership checked in domain; response excludes structured finance; production actor from session",
+    "POST /api/block": "actor,start,end,timezone; conflict checked atomically",
+    "POST /api/block-update": "id,actor; omit start to cancel; include start/end/timezone to change",
+    "POST /api/intake": "question/client_brief stored locally, not sent and not final quotation"
+  },
+  "production_invariants": [
+    "PostgreSQL transaction locks role slot AND specialist schedule (advisory lock or exclusion constraint); UNIQUE assignment per slot; idempotency key bound to actor/action/payload",
+    "Server-derived identity on every endpoint; owner finance projection; manager scoped project and authorized budget window; specialist own terms only",
+    "Workspace created only after accepted leadership for multirole projects; candidates never inherit membership",
+    "Persist outbox in same transaction as domain event; retry with provider IDs; dedup inbound update/event IDs",
+    "New order version invalidates old offers; changed conditions need explicit fresh confirmation",
+    "Availability only hard intervals supplied voluntarily; empty calendar is not guaranteed availability",
+    "No auto-start for unknown kind or complex order without accepted manager",
+    "Store consent revision, verification audit and contact verification challenges independently",
+    "Manager invitation production must snapshot dates, duties, compensation and authorized budget; demo acceptance covers coordination only",
+    "No rates in shared structured workspace; private personal offers; shared discussion requires privacy controls and moderation"
+  ],
+  "integration_next": "Use server-side adapter from CRM backend to domain service; never expose local owner state to public landing. Separate public intake from internal admin before deployment.",
+  "not_implemented": ["production auth/ACL", "contact verification", "real offer/email delivery", "durable production notification worker (local 30s clock implemented)", "external calendar sync", "automated Telegram group creation", "payment", "withdrawal/replacement workflow", "holidays and DST ambiguity validation", "ES/FR", "fully translated English bot/admin/errors"]
+}
