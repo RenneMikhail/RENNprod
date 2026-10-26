@@ -1,5 +1,5 @@
 """Outbound polling only; only responds to inbound private user messages. Token never logged."""
-import json, os, sys, time, urllib.request, urllib.error, fcntl
+import json, os, sys, time, urllib.request, urllib.error, fcntl, secrets
 import core
 def token():
     direct=os.environ.get('TELEGRAM_BOT_TOKEN','').strip()
@@ -20,6 +20,11 @@ def call(method,payload=None):
         with urllib.request.urlopen(req,timeout=40) as r:j=json.load(r)
         if not j.get('ok'):raise RuntimeError('Telegram API rejected request')
         return j['result']
+    except urllib.error.HTTPError as e:
+        try:description=json.loads(e.read()).get('description','')
+        except Exception:description=''
+        if method=='editMessageText' and e.code==400 and 'message is not modified' in description:return True
+        raise RuntimeError('Telegram transport/API failure (details suppressed)') from None
     except Exception:raise RuntimeError('Telegram transport/API failure (details suppressed)') from None
 FIELDS=[('name','Как вас зовут?'),('city','Ваш город?'),('roles','Роли (коды через запятую): '+', '.join(core.ROLES)),('skills','Навыки (коды через запятую): '+', '.join(core.SKILLS)),('tasks','Типы задач (коды через запятую): '+', '.join(core.TASKS)),('mobility','Формат: city / travel / remote'),('equipment','Техника: none / camera / camera_audio / studio'),('rate','Ориентир за смену или задачу — число. Точные условия подтверждаются в предложении.'),('currency','Валюта: RUB / EUR / USD'),('languages','Языки через запятую: ru, en, es, ka'),('email','Email для резерва (обязателен, подтверждение пока не подключено)'),('phone','Телефон (необязательно; отправьте - для пропуска)'),('timezone','Часовой пояс: Europe/Moscow, Europe/Madrid, Asia/Tbilisi, America/New_York или UTC'),('portfolio','Ссылка на портфолио (https://...)'),('portfolio_role','Ваша собственная роль в работах портфолио'),('consent','Согласны сохранить анкету в локальной базе RENN Prod для рассмотрения проектного сотрудничества? Ответьте ДА. Контакты не подтверждаются автоматически, квалификацию проверит человек; задания/доход не гарантируются.')]
 def parse_field(field,text):
@@ -78,6 +83,7 @@ def handle(message,connection=None):
         except Exception:return 'Ответ не принят. '+FIELDS[step][1]
         if step==len(FIELDS)-1:
             p.pop('consent',None)
+            for key in ['_ui_nonce','_ui_step','_selected']:p.pop(key,None)
             try:sid=core.register(p,telegram_id=ident,dbconn=c)
             except Exception:return 'Анкета не сохранена. Проверьте поля или начните /start.'
             c.execute('DELETE FROM bot_state WHERE telegram_id=?',(ident,))
@@ -85,15 +91,63 @@ def handle(message,connection=None):
         c.execute('UPDATE bot_state SET step=?,payload=? WHERE telegram_id=?',(step+1,json.dumps(p,ensure_ascii=False),ident))
         return FIELDS[step+1][1]
 
+LABELS={'camera':'Оператор','editor':'Монтажёр','sound':'Звук','manager':'Менеджер','generative':'AI-генератор','event':'Организатор','cg':'CG-специалист','fpv':'FPV-дронщик','interview':'Интервью','multicam':'Мультикамера','color':'Цвет','editing':'Монтаж','generation':'AI-генерация','coordination':'Координация','shoot':'Съёмка','edit':'Монтаж','generate':'Генерация','city':'В своём городе','travel':'Готов к выездам','remote':'Удалённо','none':'Без своей техники','camera_audio':'Камера и звук','studio':'Студия','ru':'Русский','en':'Английский','es':'Испанский','ka':'Грузинский','ДА':'Согласен'}
+MULTI={'roles','skills','tasks','languages'}
+def choices(field):
+    return {'roles':core.ROLES,'skills':core.SKILLS,'tasks':core.TASKS,'languages':['ru','en','es','ka'],'mobility':['city','travel','remote'],'equipment':['none','camera','camera_audio','studio'],'currency':['RUB','EUR','USD'],'timezone':['Europe/Moscow','Europe/Madrid','Asia/Tbilisi','America/New_York','UTC'],'consent':['ДА']}.get(field,[])
+def prompt(ident,connection):
+    st=connection.execute('SELECT * FROM bot_state WHERE telegram_id=?',(ident,)).fetchone()
+    if not st:return None
+    p=json.loads(st['payload']);field=FIELDS[st['step']][0];xs=choices(field)
+    if not xs:return None
+    if '_ui_nonce' not in p:
+        p['_ui_nonce']=secrets.token_hex(6);p['_ui_step']=st['step'];p['_selected']=[]
+        connection.execute('UPDATE bot_state SET payload=? WHERE telegram_id=?',(json.dumps(p,ensure_ascii=False),ident))
+    nonce=p['_ui_nonce'];selected=p.get('_selected',[])
+    keyboard=[[{'text':('✓ ' if x in selected else '')+('Камера' if field=='equipment' and x=='camera' else LABELS.get(x,x)), 'callback_data':nonce+':'+str(i)}] for i,x in enumerate(xs)]
+    if field in MULTI:keyboard.append([{'text':'Готово →','callback_data':nonce+':done'}])
+    keyboard.append([{'text':'Отмена','callback_data':nonce+':cancel'}])
+    title={'roles':'Выберите ваши роли','skills':'Выберите навыки','tasks':'Какие задачи берёте?','languages':'На каких языках работаете?','mobility':'Где готовы работать?','equipment':'Какая техника есть?','currency':'Выберите валюту','timezone':'Ваш часовой пояс','consent':FIELDS[st['step']][1]}[field]
+    return {'text':title+(' · можно выбрать несколько' if field in MULTI else ''),'reply_markup':{'inline_keyboard':keyboard}}
+def callback(query,c):
+    sender=query.get('from',{});msg=query.get('message',{});ident=sender.get('id')
+    if not ident or sender.get('is_bot') or msg.get('chat',{}).get('type')!='private' or msg['chat'].get('id')!=ident:return 'Кнопка недоступна.'
+    st=c.execute('SELECT * FROM bot_state WHERE telegram_id=?',(ident,)).fetchone()
+    if not st:return 'Анкета уже завершена. /profile — статус.'
+    p=json.loads(st['payload']);parts=query.get('data','').split(':');field=FIELDS[st['step']][0];xs=choices(field)
+    if len(parts)!=2 or not secrets.compare_digest(parts[0],p.get('_ui_nonce','')) or p.get('_ui_step')!=st['step']:return 'Эта кнопка устарела. Ответьте на текущий вопрос.'
+    action=parts[1]
+    if action=='cancel':return handle({'chat':msg['chat'],'from':sender,'text':'/cancel'},c)
+    if field in MULTI and action!='done':
+        try:value=xs[int(action)] if action.isdigit() else None
+        except (IndexError,ValueError):value=None
+        if value is None:return 'Неизвестный вариант.'
+        selected=p.setdefault('_selected',[])
+        if value in selected:selected.remove(value)
+        else:selected.append(value)
+        c.execute('UPDATE bot_state SET payload=? WHERE telegram_id=?',(json.dumps(p,ensure_ascii=False),ident));return 'Выберите варианты и нажмите «Готово».'
+    if action=='done':
+        if field not in MULTI or not p.get('_selected'):return 'Выберите хотя бы один вариант.'
+        text=','.join(p['_selected'])
+    else:
+        if not action.isdigit() or int(action)>=len(xs):return 'Неизвестный вариант.'
+        text=xs[int(action)]
+    return handle({'chat':msg['chat'],'from':sender,'text':text},c)
 def process_update(update):
     with core.connect() as c:
-        c.execute('BEGIN IMMEDIATE')
-        event='tg-update:'+str(update['update_id'])
+        c.execute('BEGIN IMMEDIATE');event='tg-update:'+str(update['update_id'])
         cached=c.execute('SELECT result FROM command WHERE id=?',(event,)).fetchone()
-        reply=json.loads(cached[0]) if cached else handle(update.get('message',{}),c)
-        if not cached:c.execute('INSERT INTO command VALUES(?,?)',(event,json.dumps(reply,ensure_ascii=False)))
-        c.commit()
-        return reply
+        if cached:return json.loads(cached[0])
+        query=update.get('callback_query');msg=update.get('message',{});ident=(query or msg).get('from',{}).get('id')
+        before=c.execute('SELECT step FROM bot_state WHERE telegram_id=?',(ident,)).fetchone()
+        reply=callback(query,c) if query else handle(msg,c)
+        after=c.execute('SELECT * FROM bot_state WHERE telegram_id=?',(ident,)).fetchone()
+        if after and (not before or before['step']!=after['step'] or msg.get('text','').split(' ')[0]=='/start'):
+            p=json.loads(after['payload'])
+            for key in ['_ui_nonce','_ui_step','_selected']:p.pop(key,None)
+            c.execute('UPDATE bot_state SET payload=? WHERE telegram_id=?',(json.dumps(p,ensure_ascii=False),ident))
+        prompt(ident,c)
+        c.execute('INSERT INTO command VALUES(?,?)',(event,json.dumps(reply,ensure_ascii=False)));c.commit();return reply
 
 def main():
     core.init();lock=open(core.ROOT/'data'/'bot.lock','w')
@@ -106,11 +160,20 @@ def main():
         r=c.execute("SELECT value FROM bot_meta WHERE key='offset'").fetchone();offset=int(r[0]) if r else 0
     while True:
         try:
-            updates=call('getUpdates',{'offset':offset,'timeout':20,'allowed_updates':['message']})
+            updates=call('getUpdates',{'offset':offset,'timeout':20,'allowed_updates':['message','callback_query']})
             for u in updates:
                 # Store update and state atomically. Transport retries may repeat the cached reply, never advance the form twice.
                 reply=process_update(u)
-                if reply:call('sendMessage',{'chat_id':u['message']['chat']['id'],'text':reply})
+                query=u.get('callback_query');msg=query.get('message',{}) if query else u.get('message',{})
+                ident=(query or u.get('message',{})).get('from',{}).get('id')
+                if query:call('answerCallbackQuery',{'callback_query_id':query['id']})
+                with core.connect() as c:ui=prompt(ident,c)
+                if reply and msg.get('chat',{}).get('type')=='private' and msg['chat'].get('id')==ident:
+                    payload={'chat_id':msg['chat']['id'],**(ui or {'text':reply})}
+                    if query and ui:
+                        payload['message_id']=msg['message_id']
+                        call('editMessageText',payload)
+                    else:call('sendMessage',payload)
                 offset=u['update_id']+1
                 with core.connect() as c:c.execute("INSERT INTO bot_meta VALUES('offset',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(str(offset),))
         except KeyboardInterrupt:break

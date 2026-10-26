@@ -2,14 +2,16 @@ import json, secrets, argparse, threading, time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse,parse_qs
 from pathlib import Path
-import core
+import core,auth
+from access import AccessMixin
 SESSION=secrets.token_urlsafe(24)
-class Handler(BaseHTTPRequestHandler):
+class Handler(AccessMixin,BaseHTTPRequestHandler):
+    def session_value(self):return SESSION
     def log_message(self,*a):pass
     def send(self,data,status=200,typ='application/json'):
         raw=(json.dumps(data,ensure_ascii=False) if typ=='application/json' else data).encode();self.send_response(status);self.send_header('Content-Type',typ+'; charset=utf-8');self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(raw)
     def authorized(self):return self.headers.get('X-Local-Session')==SESSION
-    def do_GET(self):
+    def _local_get(self):
         u=urlparse(self.path);q=parse_qs(u.query)
         if u.path=='/shooting' or u.path.startswith('/shooting/'):
             if self.headers.get('Host')!='127.0.0.1:'+str(self.server.server_port):
@@ -72,7 +74,7 @@ class Handler(BaseHTTPRequestHandler):
                 if u.path=='/api/workspace':return self.send(core.workspace_view(q['order'][0],q['actor'][0]))
             return self.send({'error':'Not found'},404)
         except (ValueError,KeyError) as e:self.send({'error':str(e)},400)
-    def do_POST(self):
+    def _local_post(self):
         if self.headers.get('Origin') and self.headers['Origin']!='http://'+self.headers.get('Host',''):return self.send({'error':'Origin rejected'},403)
         if not self.authorized():return self.send({'error':'Local session required'},403)
         try:
@@ -122,5 +124,5 @@ def notification_clock():
         except Exception:pass  # No personal details or transport secrets in logs.
         time.sleep(30)
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--port',type=int,default=8766);args=parser.parse_args();core.init();core.seed();threading.Thread(target=notification_clock,daemon=True).start();print(f'Ren Prod local: http://127.0.0.1:{args.port}',flush=True);ThreadingHTTPServer(('127.0.0.1',args.port),Handler).serve_forever()
+    parser=argparse.ArgumentParser();parser.add_argument('--port',type=int,default=8766);args=parser.parse_args();auth.init();core.init();core.seed();threading.Thread(target=notification_clock,daemon=True).start();print(f'Ren Prod local: http://127.0.0.1:{args.port}',flush=True);ThreadingHTTPServer(('127.0.0.1',args.port),Handler).serve_forever()
 if __name__=='__main__':main()
