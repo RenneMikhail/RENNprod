@@ -17,4 +17,4 @@ Passwords use salted scrypt; opaque sessions are stored hashed, expire after eig
 
 The server remains bound to 127.0.0.1. Production remote hosting still needs HTTPS, operational hardening and independent review. This implementation is not a claim of production security. GitHub Pages cannot run this backend or authenticate access to private records.
 
-The running original runtime and its database have not been migrated by these changes. Source interfaces still need final integration with these endpoints.
+The running original runtime and its database have not been migrated by these changes. Employee endpoints are integrated and covered by HTTP tests (own profile, availability, offers and questions). Creating the first local account is a manual owner step. CRM order data and some staff-management UI actions remain demonstration/local drafts; they are not advertised as persisted server mutations.

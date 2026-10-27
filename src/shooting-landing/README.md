@@ -1,25 +1,9 @@
-# Ren Prod — Съёмка
+# RENN Prod — seven-service client site
 
-Текущий адрес: http://127.0.0.1:8766/shooting/
-Пульт: http://127.0.0.1:8766/panel
+Current implementation and checks: DRIVE-TZ-QA.md. Seven detail pages are linked from index.html. RU/EN copy is in locales.js; layout in styles.css; interaction/media viewer in site.js.
 
-## Текущее поведение
-HTML/CSS/JS-лендинг работает на общем локальном team-routing сервере. Форма отправляет same-origin POST /api/intake с текущей локальной сессией; backend сохраняет запись SQLite и возвращает ID. Только такой подтверждённый ответ показывается как сохранение. Telegram/email не отправляются.
+Media manifest: services.js. Edit only approved entries; work items currently use the four archive MP4s supplied from the previous site and their posters. Backstage entries with src null show an explicit pending state. For real embeds use approved HTTPS player URLs; current allowlist supports YouTube, Rutube and Vimeo players. No autoplay.
 
-Сервер запускается владельцем из team-routing/server.py, только на 127.0.0.1:8766. В server.py добавлены точные whitelist-маршруты для четырёх файлов сайта; существующий /crm сохранён. Корень проекта, отчёты, архивы, .env и база не обслуживаются через /shooting. Сессия подставляется в HTML в памяти и не сохраняется в исходники. Не публиковать локальный стенд.
+Public docs version saves an optional demo description only in browser storage, with Restore/Clear. Do not enter personal data. Source version preserves the existing same-origin local intake; runtime/backend deployment is separate. No claim of production readiness.
 
-При file:// или автономном порте 8768 форма показывает «Не сохранено» и правильный локальный адрес. При сетевой ошибке или отказе сервера успех не показывается. Таймаут не доказывает отсутствие записи: перед повтором проверьте панель; идемпотентность пока не реализована. Форма пока без контакта клиента — локальная проверка приёма описания проекта.
-
-## Дизайн и контент
-Четыре карточки ведут к секциям этой страницы. Hover/focus раскрывают описание; для touch описания видны сразу. Есть focus-visible и prefers-reduced-motion. Внешних CDN, изображений и шрифтов нет.
-
-Токены --rp-bg, --rp-surface, --rp-text, --rp-accent, --rp-border, --rp-font находятся в styles.css. Общий файл между прототипами пока не подключён.
-
-Тексты RU/EN отделены в locales.js; одна разметка и логика формы, стабильные идентификаторы услуг. По умолчанию RU. ES/FR не переведены. EN — перевод прототипа, а не международный коммерческий запуск. Цены остаются российскими: 20 000 RUB за 8 часов простой съёмки и простой монтаж 5 роликов, сценарии +10 000 RUB за пакет; сложные работы отдельно.
-
-Клиентские логотипы и видео не предоставлены; вместо вымышленных работ показано сообщение о готовящейся подборке.
-
-## Границы
-Это доверенный локальный стенд на Mac, не production CRM и не публичная форма. До запуска нужны серверная авторизация и права, защита секретов, согласованная обработка данных, отдельные резервные копии и независимая проверка. Домен и международные соцсети не подключены.
-
-Проверки: VERIFICATION.md. Контракт: integration-request.json.
+Professional filming starts at RUB 40,000. Reels starts at RUB 20,000 for 8h simple filming and simple editing of 5 videos; package scripts +RUB 10,000. Complex work and other services quoted separately. EN is a translation of the Russian-market offer.

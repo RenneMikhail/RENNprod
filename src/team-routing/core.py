@@ -6,7 +6,8 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 DB = ROOT / 'data' / 'routing.sqlite3'
-ROLES = ['camera','editor','sound','manager','generative','event','cg','fpv']
+ROLE_LABELS = {'camera': 'Оператор', 'editor': 'Монтажёр', 'sound': 'Звукорежиссёр', 'manager': 'Менеджер', 'generative': 'AI-генератор', 'event': 'Организатор', 'cg': 'CG-специалист', 'fpv': 'FPV-дронщик', 'designer': 'Дизайнер', 'gaffer': 'Гаффер', 'lighting': 'Осветитель', 'driver': 'Водитель', 'costume': 'Костюмер', 'makeup': 'Гримёр'}
+ROLES = list(ROLE_LABELS)
 SKILLS = ['interview','multicam','color','sound','editing','generation','coordination','cg','fpv']
 TASKS = ['shoot','edit','generate','event']
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -100,7 +101,7 @@ def candidates(c,slot):
         p=json.loads(s['profile'])
         if slot['role'] not in p['roles'] or not set(json.loads(slot['skills']))<=set(p['skills']):continue
         if p['city']!=o['city'] and p['mobility'] not in ['travel','remote']:continue
-        if p['mobility']=='remote' and slot['role'] not in ['editor','generative','cg']:continue
+        if p['mobility']=='remote' and slot['role'] not in ['editor','generative','cg','designer']:continue
         if o['kind'] not in p['tasks'] or p['currency']!='RUB' or float(p['rate'])>slot['budget']:continue
         if busy(c,s['id'],o['start'],o['end']):continue
         result.append(s)

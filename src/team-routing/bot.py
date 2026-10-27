@@ -91,7 +91,7 @@ def handle(message,connection=None):
         c.execute('UPDATE bot_state SET step=?,payload=? WHERE telegram_id=?',(step+1,json.dumps(p,ensure_ascii=False),ident))
         return FIELDS[step+1][1]
 
-LABELS={'camera':'Оператор','editor':'Монтажёр','sound':'Звук','manager':'Менеджер','generative':'AI-генератор','event':'Организатор','cg':'CG-специалист','fpv':'FPV-дронщик','interview':'Интервью','multicam':'Мультикамера','color':'Цвет','editing':'Монтаж','generation':'AI-генерация','coordination':'Координация','shoot':'Съёмка','edit':'Монтаж','generate':'Генерация','city':'В своём городе','travel':'Готов к выездам','remote':'Удалённо','none':'Без своей техники','camera_audio':'Камера и звук','studio':'Студия','ru':'Русский','en':'Английский','es':'Испанский','ka':'Грузинский','ДА':'Согласен'}
+LABELS={**core.ROLE_LABELS, **{'interview': 'Интервью', 'multicam': 'Мультикамера', 'color': 'Цвет', 'editing': 'Монтаж', 'generation': 'AI-генерация', 'coordination': 'Координация', 'shoot': 'Съёмка', 'edit': 'Монтаж', 'generate': 'Генерация', 'city': 'В своём городе', 'travel': 'Готов к выездам', 'remote': 'Удалённо', 'none': 'Без своей техники', 'camera_audio': 'Камера и звук', 'studio': 'Студия', 'ru': 'Русский', 'en': 'Английский', 'es': 'Испанский', 'ka': 'Грузинский', 'ДА': 'Согласен'}}
 MULTI={'roles','skills','tasks','languages'}
 def choices(field):
     return {'roles':core.ROLES,'skills':core.SKILLS,'tasks':core.TASKS,'languages':['ru','en','es','ka'],'mobility':['city','travel','remote'],'equipment':['none','camera','camera_audio','studio'],'currency':['RUB','EUR','USD'],'timezone':['Europe/Moscow','Europe/Madrid','Asia/Tbilisi','America/New_York','UTC'],'consent':['ДА']}.get(field,[])

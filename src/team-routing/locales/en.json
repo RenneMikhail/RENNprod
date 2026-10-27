@@ -112,5 +112,16 @@
   "Права, доступы, согласования, правки": "Rights, access, approvals and revisions",
   "необязательно": "optional",
   "@username; не подтверждено": "@username; unverified",
-  "Нажмите на все подходящие варианты.": "Tap all options that apply."
+  "Нажмите на все подходящие варианты.": "Tap all options that apply.",
+  "Звукорежиссёр": "Sound engineer",
+  "Менеджер": "Manager",
+  "AI-генератор": "AI content specialist",
+  "CG-специалист": "CG specialist",
+  "FPV-дронщик": "FPV drone pilot",
+  "Дизайнер": "Designer",
+  "Гаффер": "Gaffer",
+  "Осветитель": "Lighting technician",
+  "Водитель": "Driver",
+  "Костюмер": "Costume specialist",
+  "Гримёр": "Makeup artist"
 }

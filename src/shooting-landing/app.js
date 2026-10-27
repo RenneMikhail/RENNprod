@@ -7,12 +7,12 @@ const textBindings = [];
 const walker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT);
 while (walker.nextNode()) {
   const node = walker.currentNode;
-  if (/\{\{copy\d+\}\}/.test(node.nodeValue)) textBindings.push({node, template: node.nodeValue});
+  if (/\{\{[A-Za-z0-9_]+\}\}/.test(node.nodeValue)) textBindings.push({node, template: node.nodeValue});
 }
 const attributeBindings = [];
 document.querySelectorAll("*").forEach(node => {
   [...node.attributes].forEach(attr => {
-    if (/\{\{copy\d+\}\}/.test(attr.value)) attributeBindings.push({node, name:attr.name, template:attr.value});
+    if (/\{\{[A-Za-z0-9_]+\}\}/.test(attr.value)) attributeBindings.push({node, name:attr.name, template:attr.value});
   });
 });
 let locale = "ru";
@@ -20,12 +20,14 @@ function translate(key) { return window.RP_LOCALES[locale][key] ?? window.RP_LOC
 function applyLocale(nextLocale) {
   if (!window.RP_LOCALES[nextLocale]) return;
   locale = nextLocale;
-  const render = template => template.replace(/\{\{(copy\d+)\}\}/g, (_, key) => translate(key));
+  const render = template => template.replace(/\{\{([A-Za-z0-9_]+)\}\}/g, (_, key) => translate(key));
   textBindings.forEach(binding => {binding.node.nodeValue = render(binding.template);});
   attributeBindings.forEach(binding => binding.node.setAttribute(binding.name,render(binding.template)));
   document.documentElement.lang = locale;
-  document.querySelector("[data-nav-copy=team]").textContent = translate("navTeam");
+  document.title = (document.querySelector("h1")?.textContent.trim().replace(/\s+/g," ") || "RENN Prod") + " — RENN Prod";
+  if(document.querySelector("[data-nav-copy=team]")) document.querySelector("[data-nav-copy=team]").textContent = translate("navTeam");
   document.querySelectorAll("[data-locale]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.locale === locale)));
+  document.dispatchEvent(new CustomEvent("rp:locale", {detail:locale}));
   if (status.dataset.key) status.textContent = translate(status.dataset.key) + (status.dataset.id || "");
 }
 document.querySelectorAll("[data-locale]").forEach(button => button.addEventListener("click", () => applyLocale(button.dataset.locale)));
@@ -118,3 +120,8 @@ if (location.origin === "http://127.0.0.1:8766" && location.hash.startsWith("#br
     document.querySelector("#idea").focus();
   } catch { showStatus("offline"); }
 }
+
+// Preserve the selected language when navigating service pages.
+document.querySelectorAll("[data-locale]").forEach(button=>button.addEventListener("click",()=>{document.querySelectorAll('a[href$=".html"],a[href*=".html?lang="]').forEach(a=>{const url=new URL(a.href);url.searchParams.set("lang",locale);a.href=url.href;});}));
+const pageLanguage=new URLSearchParams(location.search).get("lang");
+if (["ru","en"].includes(pageLanguage)) {applyLocale(pageLanguage);document.querySelectorAll('a[href$=".html"]').forEach(a=>{const url=new URL(a.href);url.searchParams.set("lang",pageLanguage);a.href=url.href;});}

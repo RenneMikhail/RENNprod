@@ -1,0 +1,30 @@
+{
+  "status": "implemented-browser-verified",
+  "loaded_js": [
+    "locales.js",
+    "services.js",
+    "app.js",
+    "site.js"
+  ],
+  "service_pages": [
+    "professional.html",
+    "reels.html",
+    "commercial.html",
+    "art.html",
+    "editing.html",
+    "graphics.html",
+    "ai.html"
+  ],
+  "backend_service_ids": [
+    "professional",
+    "reels",
+    "commercial",
+    "art",
+    "editing",
+    "graphics",
+    "ai"
+  ],
+  "additional_server_whitelist_needed": [],
+  "notes": "Uses existing styles.css; site.css is unused. Seven services now match backend IDs. Real archived MP4s supplied by parent; no autoplay, video created only on viewer click with preload none.",
+  "backend_whitelist": "Parent confirmed complete"
+}

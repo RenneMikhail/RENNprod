@@ -24,6 +24,7 @@ class AccessMixin:
   if not self.host_ok():return self.send({'error':'Loopback host required'},403)
   route=urlparse(self.path).path;p=self.get_user()
   if route=='/login':return self.send(LOGIN,200,'text/html')
+  if route=='/employee.js':return self.send((core.ROOT/'employee.js').read_text(),200,'text/javascript')
   if route=='/api/me':return self.send(p or {'error':'Войдите в систему'},200 if p else 401)
   if route=='/api/employee/state':
    if not auth.allowed(p,'self:read'):return self.send({'error':'Нет доступа'},403)
@@ -32,11 +33,19 @@ class AccessMixin:
     person=c.execute('SELECT id,name,profile,verified FROM specialist WHERE id=?',(sid,)).fetchone()
     if not person:return self.send({'error':'Профиль ещё не привязан'},404)
     person=dict(person);person['profile']=json.loads(person['profile'])
-    offers=[dict(r) for r in c.execute('SELECT f.*,o.title,o.city,o.start,o.end,o.brief FROM offer f JOIN role_slot s ON s.id=f.slot_id JOIN orders o ON o.id=s.order_id WHERE f.specialist_id=?',(sid,))]
-    for x in offers:x['terms']=json.loads(x['terms']);x['brief']=json.loads(x['brief'])
+    offers=[dict(r) for r in c.execute('SELECT f.*,o.title,o.city,o.start,o.end,o.brief,o.kind AS type,o.id AS order_id FROM offer f JOIN role_slot s ON s.id=f.slot_id JOIN orders o ON o.id=s.order_id WHERE f.specialist_id=?',(sid,))]
+    for x in offers:
+     x['terms']=json.loads(x['terms']);x['brief']=json.loads(x['brief'])
+     x['location']=x['brief'].get('address') or x['city'] or 'Адрес уточняется'
+     x['description']=x['terms'].get('task') or x['brief'].get('task') or x['title']
+     manager=c.execute("SELECT s.name FROM manager_acceptance m JOIN specialist s ON s.id=m.specialist_id WHERE m.order_id=? AND m.status='accepted'",(x['order_id'],)).fetchone()
+     x['manager']=manager['name'] if manager else None
     availability=[dict(r) for r in c.execute('SELECT * FROM availability WHERE specialist_id=?',(sid,))]
     assignments=[dict(r) for r in c.execute('SELECT a.id,o.title,o.city,o.start,o.end FROM assignment a JOIN role_slot s ON s.id=a.slot_id JOIN orders o ON o.id=s.order_id WHERE a.specialist_id=?',(sid,))]
-   return self.send({'specialist':person,'offers':offers,'availability':availability,'assignments':assignments})
+   with core.connect() as c:
+    c.execute('CREATE TABLE IF NOT EXISTS employee_question(id TEXT PRIMARY KEY,specialist_id TEXT,offer_id TEXT,body TEXT,created_at TEXT,command_key TEXT,UNIQUE(specialist_id,command_key))')
+    questions=[{'id':r['id'],'offer':r['offer_id'],'body':r['body'],'created_at':r['created_at']} for r in c.execute('SELECT * FROM employee_question WHERE specialist_id=? ORDER BY created_at',(sid,))]
+   return self.send({'profile':person,'offers':offers,'availability':availability,'assignments':assignments,'questions':questions})
   if route=='/api/accounts':
    if not p or p['role']!='owner':return self.send({'error':'Только владелец'},403)
    with auth.connect() as c:rows=[auth.user(r) for r in c.execute('SELECT * FROM account')]
@@ -77,15 +86,29 @@ class AccessMixin:
     else:auth.create_user(p['username'],p['password'],p['role'],p.get('permissions',[]),p.get('specialist_id'))
     return self.send({'status':'saved'})
    if route=='/api/staff/add':return self.send({'id':core.register(self.body())})
+   if route=='/api/employee/question':
+    if not auth.allowed(user,'self:read'):return self.send({'error':'Нет доступа'},403)
+    p=self.body();sid=user['specialist_id'];body=p.get('body','');key=p.get('key','')
+    if not isinstance(body,str) or not 1<=len(body.strip())<=2000 or not isinstance(key,str) or not 1<=len(key)<=150:raise ValueError('Invalid question')
+    with core.connect() as c:
+     if not c.execute('SELECT 1 FROM offer WHERE id=? AND specialist_id=?',(p.get('offer'),sid)).fetchone():return self.send({'error':'Предложение недоступно'},403)
+     c.execute('CREATE TABLE IF NOT EXISTS employee_question(id TEXT PRIMARY KEY,specialist_id TEXT,offer_id TEXT,body TEXT,created_at TEXT,command_key TEXT,UNIQUE(specialist_id,command_key))')
+     previous=c.execute('SELECT id FROM employee_question WHERE specialist_id=? AND command_key=?',(sid,key)).fetchone()
+     ident=previous['id'] if previous else core.uid()
+     if not previous:c.execute('INSERT INTO employee_question VALUES(?,?,?,?,?,?)',(ident,sid,p['offer'],body.strip(),core.now(),key))
+    return self.send({'id':ident,'status':'saved','message':'Вопрос сохранён в системе; внешняя доставка не подключена'})
    if route=='/api/profile':
     if not auth.allowed(user,'self:update'):return self.send({'error':'Нет доступа'},403)
-    p=core.validate(self.body());sid=user['specialist_id']
+    patch=self.body();sid=user['specialist_id']
+    allowed={'city','roles','equipment','mobility'}
+    if not set(patch)<=allowed|{'key'}:raise ValueError('Unknown profile field')
     with core.connect() as c:
      r=c.execute('SELECT profile FROM specialist WHERE id=?',(sid,)).fetchone()
      if not r:return self.send({'error':'Профиль не найден'},404)
-     old=json.loads(r['profile']);changed=any(old.get(k)!=p.get(k) for k in ['roles','skills','portfolio','portfolio_role'])
-     c.execute('UPDATE specialist SET name=?,profile=?,verified=CASE WHEN ? THEN 0 ELSE verified END WHERE id=?',(p['name'],json.dumps(p,ensure_ascii=False),int(changed),sid))
-    return self.send({'status':'saved'})
+     old=json.loads(r['profile']);merged={**old,**{k:v for k,v in patch.items() if k in allowed}};p=core.validate(merged)
+     changed=any(old.get(k)!=p.get(k) for k in ['roles','skills','portfolio','portfolio_role'])
+     c.execute('UPDATE specialist SET profile=?,verified=CASE WHEN ? THEN 0 ELSE verified END WHERE id=?',(json.dumps(p,ensure_ascii=False),int(changed),sid))
+    return self.send({'status':'saved','message':'Профиль сохранён'})
    if user['role']=='employee' and route not in ['/api/block','/api/block-update','/api/respond','/api/workspace','/api/discuss','/api/manager']:return self.send({'error':'Нет доступа'},403)
    if route in ['/api/block','/api/block-update','/api/respond','/api/discuss','/api/manager','/api/select']:
     p=self.body();actor=user.get('specialist_id') if user['role']=='employee' else 'owner'

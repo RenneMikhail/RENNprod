@@ -13,23 +13,30 @@ class Handler(AccessMixin,BaseHTTPRequestHandler):
     def authorized(self):return self.headers.get('X-Local-Session')==SESSION
     def _local_get(self):
         u=urlparse(self.path);q=parse_qs(u.query)
+        if u.path in ['/shooting','/crm']:
+            self.send_response(303);self.send_header('Location',u.path+'/'+('?' + u.query if u.query else ''));self.end_headers();return
         if u.path=='/shooting' or u.path.startswith('/shooting/'):
             if self.headers.get('Host')!='127.0.0.1:'+str(self.server.server_port):
                 return self.send({'error':'Loopback host required'},403)
             files={'/shooting':'index.html','/shooting/':'index.html','/shooting/index.html':'index.html',
                    '/shooting/styles.css':'styles.css','/shooting/app.js':'app.js','/shooting/locales.js':'locales.js'}
+            if u.path.startswith('/shooting/'):
+                extra=['experience.js','media-manifest.js','cg.html','media/1.jpg','media/2.jpg','media/3.jpg','media/4.jpg','site.css','site.js','services.js','professional.html','reels.html','commercial.html','art.html','editing.html','graphics.html','ai.html','assets/renn-prod-eye-vector.svg','media/1.mp4','media/2.mp4','media/3.mp4','media/4.mp4']
+                files.update({'/shooting/'+x:x for x in extra})
             filename=files.get(u.path)
             if not filename:return self.send({'error':'Not found'},404)
             root=core.ROOT.parent/'shooting-landing'
             file=root/filename
-            if file.is_symlink() or not file.is_file() or file.resolve().parent!=root.resolve():
+            if file.is_symlink() or not file.is_file() or not file.resolve().is_relative_to(root.resolve()):
                 return self.send({'error':'Not found'},404)
+            if filename.endswith(('.mp4','.jpg')):
+                raw=file.read_bytes();self.send_response(200);self.send_header('Content-Type','image/jpeg' if filename.endswith('.jpg') else 'video/mp4');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
             content=file.read_text()
-            if filename=='index.html':
+            if filename.endswith('.html'):
                 content=content.replace('__SESSION__',SESSION).replace('href="styles.css"','href="/shooting/styles.css"')
-                for asset in ['app.js','locales.js']:
+                for asset in ['app.js','locales.js','site.js','services.js']:
                     content=content.replace('src="'+asset+'"','src="/shooting/'+asset+'"')
-            typ='text/html' if filename.endswith('.html') else 'text/css' if filename.endswith('.css') else 'text/javascript'
+            typ='image/svg+xml' if filename.endswith('.svg') else 'text/html' if filename.endswith('.html') else 'text/css' if filename.endswith('.css') else 'text/javascript'
             return self.send(content,200,typ)
         if u.path=='/crm' or u.path.startswith('/crm/'):
             # Explicit filenames only: never expose project roots, secrets or data.
@@ -70,6 +77,9 @@ class Handler(AccessMixin,BaseHTTPRequestHandler):
                 if u.path=='/api/state':
                     data={t:[dict(r) for r in c.execute('SELECT * FROM '+t)] for t in ['specialist','orders','role_slot','offer','assignment','manager_acceptance','availability','notification','intake']}
                     for s in data['specialist']:s['profile']=json.loads(s['profile'])
+                    c.execute('CREATE TABLE IF NOT EXISTS employee_question(id TEXT PRIMARY KEY,specialist_id TEXT,offer_id TEXT,body TEXT,created_at TEXT,command_key TEXT,UNIQUE(specialist_id,command_key))')
+                    for question in c.execute('SELECT q.*,s.name FROM employee_question q JOIN specialist s ON s.id=q.specialist_id ORDER BY q.created_at'):
+                        data['intake'].append({'id':question['id'],'kind':'Вопрос сотрудника','created_at':question['created_at'],'payload':json.dumps({'name':question['name'],'question':question['body'],'task':question['offer_id']},ensure_ascii=False)})
                     return self.send(data)
                 if u.path=='/api/workspace':return self.send(core.workspace_view(q['order'][0],q['actor'][0]))
             return self.send({'error':'Not found'},404)
@@ -99,7 +109,7 @@ class Handler(AccessMixin,BaseHTTPRequestHandler):
                         c.execute("UPDATE notification SET channel=?,status='queued' WHERE id=?",(p['channel'],p['id']))
                     elif action=='/api/intake':
                         if p.get('source')=='shooting-landing':
-                            if p.get('kind')!='client' or p.get('service') not in ['professional','reels','commercial','art'] or p.get('locale') not in ['ru','en']:
+                            if p.get('kind')!='client' or p.get('service') not in ['professional','reels','commercial','art','editing','graphics','cg','ai'] or p.get('locale') not in ['ru','en']:
                                 raise ValueError('Invalid shooting enquiry')
                             if not isinstance(p.get('idea'),str) or not 1<=len(p['idea'].strip())<=1200:
                                 raise ValueError('Idea required; maximum 1200 characters')
