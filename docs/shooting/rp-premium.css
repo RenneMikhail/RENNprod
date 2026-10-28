@@ -1,0 +1,45 @@
+/* RENN Prod premium layer: large type, glass panels, asymmetry. Loaded after rp-extras.css; remove the <link> to revert. */
+:root{--glass:rgba(27,30,33,.55);--glass-line:rgba(255,255,255,.09);--glow:0 20px 60px rgba(0,0,0,.45),inset 0 1px rgba(255,255,255,.06)}
+body{background:radial-gradient(1200px 600px at 85% -10%,#ffad2912,transparent 60%),radial-gradient(900px 500px at -10% 40%,#ffffff08,transparent 60%),var(--rp-bg)}
+.site-header{position:sticky;top:0;z-index:30;background:rgba(16,18,20,.62);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);border-bottom:1px solid var(--glass-line);width:100%;max-width:none;padding-inline:max(20px,calc((100% - 1200px)/2))}
+h1{font-size:clamp(40px,10.4vw,80px);line-height:1.02;letter-spacing:-.045em;margin-bottom:28px;text-wrap:balance}
+h2{font-size:clamp(30px,5.4vw,64px);line-height:1.06;letter-spacing:-.04em}
+.hero{grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);align-items:end;gap:clamp(20px,5vw,72px);padding-block:clamp(40px,9vw,120px) clamp(30px,6vw,80px)}
+.hero>div:first-child{max-width:760px}
+.camera-art{transform:translateY(clamp(0px,4vw,56px));height:clamp(240px,34vw,420px)}
+.workflow{display:none}
+.hero-cta{margin-bottom:22px}
+.hero-cta .button{min-height:56px;padding:14px 30px;font-size:17px;box-shadow:0 10px 40px #ffad2933}
+.services h2,.media-section h2,.clients h2{margin-bottom:clamp(20px,4vw,48px)}
+.card-stack{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.service-card{grid-column:span 12;display:grid;grid-template-columns:auto 1fr auto;gap:clamp(14px,3vw,36px);align-items:start;padding:clamp(20px,3vw,36px);background:var(--glass);border:1px solid var(--glass-line);border-radius:18px;box-shadow:var(--glow);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);transition:transform .35s cubic-bezier(.2,.7,.2,1),border-color .35s,background .35s}
+.service-card:hover,.service-card:focus-visible{transform:translateY(-4px);border-color:#ffad2966;background:rgba(40,36,28,.6)}
+.service-card:nth-child(3n+1){grid-column:span 12}
+.card-number{font-size:clamp(44px,7vw,84px);line-height:1;font-weight:800;color:transparent;-webkit-text-stroke:1px #ffad2988;letter-spacing:-.04em}
+.service-card h3{font-size:clamp(26px,4vw,48px);letter-spacing:-.03em;margin-bottom:12px}
+.card-arrow{font-size:clamp(26px,4vw,44px);color:var(--rp-accent)}
+.card-price{margin:14px 0 0;color:var(--rp-accent);font-weight:700}
+@media (min-width:900px){
+ .service-card{grid-column:span 6}
+ .service-card:nth-child(3n+1){grid-column:span 12}
+ .service-card:nth-child(even){transform:translateY(24px)}
+ .service-card:nth-child(even):hover{transform:translateY(20px)}
+ .card-stack{padding-bottom:24px}
+}
+.promise{font-size:clamp(24px,4.4vw,56px);line-height:1.15;letter-spacing:-.035em;max-width:980px;margin-block:clamp(48px,9vw,120px)}
+.media-tile{border-radius:16px;border:1px solid var(--glass-line);box-shadow:var(--glow)}
+.clients ul{font-size:clamp(20px,3.6vw,40px);letter-spacing:-.03em}
+.final-cta{padding:clamp(32px,7vw,96px) clamp(22px,5vw,64px);margin-block:clamp(40px,8vw,100px);background:linear-gradient(135deg,rgba(255,173,41,.14),rgba(27,30,33,.6) 55%);border:1px solid var(--glass-line);border-radius:28px;box-shadow:var(--glow);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.final-cta h2{font-size:clamp(34px,7.4vw,80px);line-height:1.02}
+dialog{border:1px solid var(--glass-line);border-radius:20px;background:rgba(22,24,26,.82);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:var(--glow)}
+dialog::backdrop{background:rgba(8,9,10,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+@media (max-width:720px){
+ .hero{grid-template-columns:1fr}
+ .camera-art{transform:none}
+ .service-card{grid-template-columns:auto 1fr}
+ .card-arrow{display:none}
+}
+@media (prefers-reduced-motion:reduce){.service-card,.service-card:hover{transition:none;transform:none}}
+.service-card ul{display:grid;grid-template-columns:1fr;gap:4px 24px;margin:0;padding-left:18px;overflow-wrap:anywhere}
+@media (min-width:900px){.service-card:nth-child(3n+1) ul{grid-template-columns:1fr 1fr}}
+@media (min-width:560px) and (max-width:899px){.service-card ul{grid-template-columns:1fr 1fr}}
