@@ -1,0 +1,34 @@
+"use strict";
+const assert = require("node:assert/strict");
+globalThis.RPLeadScore = require("./lead-score.js");
+const L = require("./leads.js");
+const now = new Date("2026-10-28T12:00:00");
+assert.deepEqual(L.STAGES.map(s => s.id), ["new", "contacted", "brief", "estimate", "approved", "lost"]);
+const demos = L.demoLeads(now);
+assert.ok(demos.length >= 5 && demos.every(d => d.demo === true), "5+ demo leads, all marked demo");
+const scored = L.scoreLeads(demos, now);
+assert.ok(scored.some(x => x.sc.tier === "hot") && scored.some(x => x.sc.tier === "cold"), "demo covers hot and cold");
+const sorted = L.sortByScore(demos, now);
+const sc = sorted.map(l => L.scoreOf(l, now).score);
+assert.deepEqual(sc, sc.slice().sort((a, b) => b - a), "sorted by score descending");
+assert.equal(L.tierOf(70), "hot"); assert.equal(L.tierOf(69), "warm"); assert.equal(L.tierOf(40), "warm"); assert.equal(L.tierOf(39), "cold");
+const lead = demos[0];
+const lost = L.changeStage(lead, "lost", { now });
+assert.equal(lost.ok === false || Boolean(lead.lostReason), true, "lost needs a reason (unless one is already kept)");
+const lost2 = L.changeStage(Object.assign({}, lead, { lostReason: "" }), "lost", { now });
+assert.equal(lost2.ok, false, "lost without reason rejected");
+const lost3 = L.changeStage(Object.assign({}, lead, { lostReason: "" }), "lost", { now, reason: "Выбрали другую студию" });
+assert.equal(lost3.ok, true); assert.equal(lost3.lead.stage, "lost");
+assert.equal(L.changeStage(lead, "nope", { now }).ok, false, "unknown stage rejected");
+const overdue = Object.assign({}, lead, { stage: "contacted", nextStepDate: "2026-10-01" });
+assert.equal(L.isOverdue(overdue, now), true);
+assert.equal(L.isOverdue(Object.assign({}, overdue, { stage: "lost" }), now), false, "closed leads are never overdue");
+// budget edge cases (createLead keeps the raw number, validateLead rejects bad values)
+const mkB = b => L.validateLead(L.createLead({ title: "T", contact: "@abcde", service: "reels", source: "site", budget: b, urgency: "soon" }, { now }), { now });
+const hasBudgetError = v => Boolean(v && v.errors && v.errors.budget);
+for (const bad of ["12.5", "-1", "NaN", "999999999999", "abc"]) assert.equal(hasBudgetError(mkB(bad)), true, "budget rejected: " + bad);
+for (const good of ["", 0, 50000, "50000"]) assert.equal(hasBudgetError(mkB(good)), false, "budget accepted: " + JSON.stringify(good));
+// Telegram username: 5-32 chars
+assert.equal(L.validContact("@abcd"), false); assert.equal(L.validContact("@abcde"), true); assert.equal(L.validContact("@" + "a".repeat(33)), false);
+assert.equal(L.validContact("t.me/abcd"), false); assert.equal(L.validContact("https://t.me/renn_prod"), true);
+console.log("leads tests passed");

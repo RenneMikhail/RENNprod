@@ -1,12 +1,12 @@
 "use strict";
 // Lead scoring for the RENN Prod CRM (proposal: thresholds need owner approval).
-// Input: {budget:number|null (RUB), deadline:"YYYY-MM-DD"|null, service, contact:string, idea:string, hasReferences:boolean, now:Date}
+// Input: {urgency:"asap"|"soon"|"month"|"later" (used when no deadline), budget:number|null (RUB), deadline:"YYYY-MM-DD"|null, service, contact:string, idea:string, hasReferences:boolean, now:Date}
 // Output: {score:0..100, tier:"hot"|"warm"|"cold", reasons:string[]}
 (function (root) {
   const SERVICE_POINTS = { professional: 10, commercial: 10, art: 10, reels: 8, editing: 6, graphics: 6, ai: 6 };
   function validContact(raw) {
     const v = String(raw || "").trim();
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || /^@?[A-Za-z0-9_]{4,32}$/.test(v.replace(/^(https?:\/\/)?t\.me\//i, ""));
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || /^@?[A-Za-z0-9_]{5,32}$/.test(v.replace(/^(https?:\/\/)?t\.me\//i, ""));
   }
   function scoreLead(lead) {
     const reasons = [];
@@ -17,7 +17,10 @@
       const pts = budget >= 100000 ? 40 : budget >= 40000 ? 30 : budget >= 20000 ? 20 : 10;
       score += pts; reasons.push(`бюджет ${budget} ₽: +${pts}`);
     } else reasons.push("бюджет не указан: +0");
-    if (lead.deadline) {
+    const URGENCY = { asap: [25, "срочно (до 7 дней)"], soon: [18, "скоро (до 3 недель)"], month: [10, "в течение 1-2 месяцев"], later: [4, "не срочно"] };
+    if (lead.urgency && URGENCY[lead.urgency] && !lead.deadline) {
+      const [pts, label] = URGENCY[lead.urgency]; score += pts; reasons.push(`срочность ${label}: +${pts}`);
+    } else if (lead.deadline) {
       const days = Math.ceil((new Date(lead.deadline + "T00:00:00") - now) / 86400000);
       if (Number.isNaN(days)) reasons.push("срок не распознан: +0");
       else if (days < 0) reasons.push("срок уже в прошлом: +0");
