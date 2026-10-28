@@ -1,0 +1,38 @@
+/* RENN Prod extras: header CTA/contacts, hero CTA + background, form contact fields, scroll reveal, sticky mobile CTA. */
+.site-header{align-items:center}
+.header-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:flex-end}
+.header-contacts{display:flex;gap:16px;font-size:13px;color:#b6b4ae}
+.header-contacts a{padding:12px 0;border-bottom:1px solid transparent}
+.header-contacts a:hover,.header-contacts a:focus-visible{color:var(--rp-accent);border-color:var(--rp-accent)}
+.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;border:1px solid var(--rp-accent);background:var(--rp-accent);color:#101214;font-weight:800;letter-spacing:.5px;border-radius:2px;text-decoration:none}
+.button:hover{filter:brightness(1.08)}
+.header-cta{min-height:44px;padding:8px 18px;font-size:14px}
+.ghost{display:inline-flex;align-items:center;min-height:44px;padding:10px 6px;color:var(--rp-text);border-bottom:1px solid var(--rp-border)}
+.ghost:hover{color:var(--rp-accent);border-color:var(--rp-accent)}
+.hero{position:relative;isolation:isolate}
+.hero::before{content:"";position:absolute;inset:0 -20px 0 auto;width:min(62%,720px);z-index:-1;background:url("media/hero-bg.jpg") right center/cover no-repeat;opacity:.38;-webkit-mask-image:linear-gradient(90deg,transparent,#000 45%);mask-image:linear-gradient(90deg,transparent,#000 45%);pointer-events:none}
+.hero-cta{display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin:0 0 30px}
+.hero-contacts{font-size:13px;color:#b6b4ae;margin:-12px 0 26px}
+.hero-contacts a{color:var(--rp-text);border-bottom:1px solid var(--rp-border)}
+.contact-fields input,#brief-form input{width:100%;min-height:44px;padding:10px 12px;background:#0d0f10;color:var(--rp-text);border:1px solid var(--rp-border);border-radius:2px;margin-bottom:12px;font-size:16px}
+.contact-hint{margin:0 0 10px}
+.brief-link{display:inline-block;margin:2px 0 14px;color:var(--rp-accent);border-bottom:1px solid currentColor}
+.lead-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+#form-status[data-kind=error]{color:#ff8a70}
+#form-status[data-kind=ok]{color:#8fd6a0}
+.sticky-cta{display:none}
+@media (max-width:720px){
+ .header-contacts{display:none}
+ .header-cta{display:none}
+ .hero::before{width:100%;opacity:.22;-webkit-mask-image:linear-gradient(180deg,transparent,#000 60%);mask-image:linear-gradient(180deg,transparent,#000 60%)}
+ .sticky-cta{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#101214e6;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--rp-border)}
+ .sticky-cta .button{width:100%}
+ body{padding-bottom:76px}
+}
+.rp-reveal .reveal{opacity:0;transform:translateY(20px);transition:opacity .55s ease-out var(--reveal-delay,0ms),transform .55s ease-out var(--reveal-delay,0ms)}
+.rp-reveal .reveal.in-view{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.rp-reveal .reveal{opacity:1;transform:none;transition:none}}
+
+.media-section[hidden]{display:none!important}
+.hero-contacts a,footer a,.header-contacts a{display:inline-flex;align-items:center;min-height:44px}
+.locale-switch button{min-width:44px}

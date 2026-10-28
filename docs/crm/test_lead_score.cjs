@@ -1,0 +1,13 @@
+"use strict";
+const assert = require("node:assert/strict");
+const { scoreLead, validContact } = require("./lead-score.js");
+const now = new Date("2026-10-28T00:00:00");
+const hot = scoreLead({ budget: 150000, deadline: "2026-11-02", service: "commercial", contact: "@renn_client", idea: "x".repeat(120), hasReferences: true, now });
+assert.equal(hot.tier, "hot"); assert.equal(hot.score, 100);
+const warm = scoreLead({ budget: 40000, deadline: "2026-12-15", service: "professional", contact: "me@mail.com", idea: "съёмка интервью", now });
+assert.equal(warm.tier, "warm"); assert.equal(warm.score, 60);
+const cold = scoreLead({ budget: null, deadline: null, service: "ai", contact: "плохой контакт", idea: "", now });
+assert.equal(cold.tier, "cold"); assert.equal(cold.score, 6);
+assert.equal(scoreLead({ budget: 50000, deadline: "2026-01-01", service: "reels", contact: "a@b.co", now }).reasons.some(r => r.includes("прошлом")), true);
+assert.equal(validContact("https://t.me/renn_prod"), true); assert.equal(validContact("не контакт"), false);
+console.log("lead-score tests passed");

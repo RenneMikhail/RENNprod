@@ -57,7 +57,7 @@ function renderMedia() {
       const button=document.createElement("button");
       button.className="media-tile";button.type="button";
       const poster=allowedSource(item.poster || (item.type==="image"?item.src:null));
-      if (poster) {const img=document.createElement("img");img.src=poster;img.alt="";img.loading="lazy";button.append(img);}
+      if (poster) {const img=document.createElement("img");img.src=poster;img.alt="";img.loading="eager";img.decoding="async";button.append(img);}
       const title=document.createElement("strong");title.textContent=item.title[locale] || item.title.ru;
       const note=document.createElement("span");note.textContent=item.src ? "↗" : translate("mediaSoon");
       button.append(title,note);button.addEventListener("click",()=>openMedia(item,button));rail.append(button);

@@ -24,7 +24,7 @@ function applyLocale(nextLocale) {
   textBindings.forEach(binding => {binding.node.nodeValue = render(binding.template);});
   attributeBindings.forEach(binding => binding.node.setAttribute(binding.name,render(binding.template)));
   document.documentElement.lang = locale;
-  document.title = (document.querySelector("h1")?.textContent.trim().replace(/\s+/g," ") || "RENN Prod") + " — RENN Prod";
+  document.title = ([...(document.querySelector("h1")?.childNodes||[])].map(n => n.nodeName === "BR" ? " " : n.textContent).join("").replace(/\s+/g," ").trim() || "RENN Prod") + " — RENN Prod";
   if(document.querySelector("[data-nav-copy=team]")) document.querySelector("[data-nav-copy=team]").textContent = translate("navTeam");
   document.querySelectorAll("[data-locale]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.locale === locale)));
   document.dispatchEvent(new CustomEvent("rp:locale", {detail:locale}));
