@@ -60,6 +60,18 @@ class HTTPAccessTests(unittest.TestCase):
   self.assertEqual(len(data['questions']),1);self.assertEqual(data['profile']['profile']['city'],'Тест-город')
   self.assertTrue(all(o['specialist_id']==sid for o in data['offers']))
   self.assertEqual(self.request('/api/employee/question',{**payload,'offer':'foreign'},cookie=cookie)[0],403)
+ def test_employee_portfolio_and_skills(self):
+  cookie=self.login('employee')
+  with core.connect() as c:c.execute('UPDATE specialist SET verified=1 WHERE id=?',(self.sid,))
+  payload={'roles':['cg'],'skills':['cg','color'],'portfolio':'https://example.invalid/new','portfolio_role':'cg'}
+  self.assertEqual(self.request('/api/profile',payload,cookie=cookie)[0],200)
+  with core.connect() as c:
+   row=c.execute('SELECT profile,verified FROM specialist WHERE id=?',(self.sid,)).fetchone()
+   saved=json.loads(row['profile']);self.assertEqual(row['verified'],0)
+   self.assertEqual(saved['skills'],['cg','color']);self.assertEqual(saved['portfolio'],payload['portfolio'])
+  for bad in [{'skills':'cg'},{'skills':['unknown']},{'portfolio':'javascript:alert(1)'},{'portfolio':'https://'},{'portfolio_role':'camera'}]:
+   self.assertEqual(self.request('/api/profile',bad,cookie=cookie)[0],400,bad)
+  with core.connect() as c:self.assertEqual(json.loads(c.execute('SELECT profile FROM specialist WHERE id=?',(self.sid,)).fetchone()[0]),saved)
  def test_new_assets_and_manager_question_queue(self):
   for path in ['/shooting/graphics.html','/shooting/site.js?v=test','/shooting/services.js?v=test','/shooting/media/1.jpg']:
    self.assertEqual(self.request(path,csrf=False)[0],200,path)

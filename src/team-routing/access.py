@@ -117,12 +117,20 @@ class AccessMixin:
    if route=='/api/profile':
     if not auth.allowed(user,'self:update'):return self.send({'error':'Нет доступа'},403)
     patch=self.body();sid=user['specialist_id']
-    allowed={'city','roles','equipment','mobility'}
+    allowed={'city','roles','skills','portfolio','portfolio_role','equipment','mobility'}
     if not set(patch)<=allowed|{'key'}:raise ValueError('Unknown profile field')
     with core.connect() as c:
      r=c.execute('SELECT profile FROM specialist WHERE id=?',(sid,)).fetchone()
      if not r:return self.send({'error':'Профиль не найден'},404)
-     old=json.loads(r['profile']);merged={**old,**{k:v for k,v in patch.items() if k in allowed}};p=core.validate(merged)
+     old=json.loads(r['profile']);merged={**old,**{k:v for k,v in patch.items() if k in allowed}}
+     from urllib.parse import urlsplit
+     if any(not isinstance(merged.get(k),list) or not merged[k] or any(not isinstance(x,str) for x in merged[k]) for k in ['roles','skills']):raise ValueError('Выберите роли и навыки из списка')
+     if not isinstance(merged.get('portfolio'),str) or len(merged['portfolio'])>2048:raise ValueError('Проверьте ссылку на портфолио')
+     link=urlsplit(merged['portfolio'])
+     if link.scheme not in ['http','https'] or not link.hostname or any(x.isspace() for x in merged['portfolio']):raise ValueError('Нужна ссылка http или https на портфолио')
+     if 'portfolio_role' in patch and merged['portfolio_role'] not in merged['roles']:raise ValueError('Выберите роль портфолио из ваших ролей')
+     if merged['portfolio_role'] not in merged['roles']:merged['portfolio_role']=merged['roles'][0]
+     p=core.validate(merged)
      changed=any(old.get(k)!=p.get(k) for k in ['roles','skills','portfolio','portfolio_role'])
      c.execute('UPDATE specialist SET profile=?,verified=CASE WHEN ? THEN 0 ELSE verified END WHERE id=?',(json.dumps(p,ensure_ascii=False),int(changed),sid))
     return self.send({'status':'saved','message':'Профиль сохранён'})
