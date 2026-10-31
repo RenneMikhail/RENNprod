@@ -284,12 +284,12 @@
   function demoLeads(now) {
     const mk = (id, o) => createLead(Object.assign({ id, demo: true, createdAt: addDays(now, o.age || -5) }, o), { now });
     return [
-      mk("demo-1", { title: "Студия «Пример-1»", contact: "@demo_studio_one", service: "commercial", source: "site", budget: 150000, urgency: "asap", stage: "estimate", nextStep: "Позвонить по смете", nextStepDate: addDays(now, -2), comment: "Демо-лид: коммерческий ролик, ждём ответ по смете." }),
-      mk("demo-2", { title: "Бренд «Пример-2»", contact: "demo2@example.invalid", service: "reels", source: "telegram", budget: 45000, urgency: "soon", stage: "brief", nextStep: "Согласовать референсы", nextStepDate: addDays(now, 2), comment: "Демо-лид: серия Reels." }),
-      mk("demo-3", { title: "Проект «Пример-3»", contact: "@demo_project_three", service: "art", source: "referral", budget: 80000, urgency: "month", stage: "contacted", nextStep: "Назначить встречу", nextStepDate: addDays(now, 4), comment: "Демо-лид: арт-проект, пришёл по рекомендации." }),
-      mk("demo-4", { title: "Клиент «Пример-4»", contact: "@demo_client_four", service: "editing", source: "social", budget: 15000, urgency: "later", stage: "new", nextStep: "Написать первым", nextStepDate: addDays(now, 1), comment: "Демо-лид: монтаж, бюджет небольшой." }),
-      mk("demo-5", { title: "Компания «Пример-5»", contact: "demo5@example.invalid", service: "professional", source: "other", budget: 120000, urgency: "soon", stage: "approved", nextStep: "Подписать договор", nextStepDate: addDays(now, 3), comment: "Демо-лид: условия согласованы." }),
-      mk("demo-6", { title: "Агентство «Пример-6»", contact: "@demo_agency_six", service: "graphics", source: "site", budget: 30000, urgency: "month", stage: "lost", lostReason: "Выбрали другую студию (демо-причина)", comment: "Демо-лид: проигран." })
+      mk("demo-1", { title: "Студия «Пример-1»", contact: "@demo_studio_one", service: "commercial", source: "site", budget: 150000, urgency: "asap", stage: "estimate", nextStep: "Позвонить по смете", nextStepDate: addDays(now, -2), comment: "Пример: коммерческий ролик, ждём ответ по смете." }),
+      mk("demo-2", { title: "Бренд «Пример-2»", contact: "demo2@example.invalid", service: "reels", source: "telegram", budget: 45000, urgency: "soon", stage: "brief", nextStep: "Согласовать референсы", nextStepDate: addDays(now, 2), comment: "Пример: серия Reels." }),
+      mk("demo-3", { title: "Проект «Пример-3»", contact: "@demo_project_three", service: "art", source: "referral", budget: 80000, urgency: "month", stage: "contacted", nextStep: "Назначить встречу", nextStepDate: addDays(now, 4), comment: "Пример: арт-проект, пришёл по рекомендации." }),
+      mk("demo-4", { title: "Клиент «Пример-4»", contact: "@demo_client_four", service: "editing", source: "social", budget: 15000, urgency: "later", stage: "new", nextStep: "Написать первым", nextStepDate: addDays(now, 1), comment: "Пример: монтаж, бюджет небольшой." }),
+      mk("demo-5", { title: "Компания «Пример-5»", contact: "demo5@example.invalid", service: "professional", source: "other", budget: 120000, urgency: "soon", stage: "approved", nextStep: "Подписать договор", nextStepDate: addDays(now, 3), comment: "Пример: условия согласованы." }),
+      mk("demo-6", { title: "Агентство «Пример-6»", contact: "@demo_agency_six", service: "graphics", source: "site", budget: 30000, urgency: "month", stage: "lost", lostReason: "Выбрали другую студию (демо-причина)", comment: "Пример: проигран." })
     ];
   }
 
