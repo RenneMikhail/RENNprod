@@ -21,6 +21,29 @@ class RoutingTests(unittest.TestCase):
         core.route('simple',self.db);self.assertNotEqual(self.rows('SELECT * FROM offer')[0]['specialist_id'],s)
         core.update_block(b,s,'2026-12-02T10:00','2026-12-02T12:00','Europe/Moscow',self.db);core.update_block(b,s,path=self.db)
         self.assertEqual(self.rows('SELECT active FROM availability')[0]['active'],0)
+    def test_busy_details_persist_and_validate(self):
+        sid=self.rows('SELECT id FROM specialist')[0]['id']
+        ident=core.block(sid,'2027-02-01T10:00','2027-02-01T12:00','UTC',self.db,city=' Казань ',activity=' Съёмка ')
+        core.init(self.db)
+        row=self.rows('SELECT * FROM availability WHERE id=?',(ident,))[0]
+        self.assertEqual((row['city'],row['activity']),('Казань','Съёмка'))
+        core.update_block(ident,sid,'2027-02-02T10:00','2027-02-02T12:00','UTC',self.db)
+        self.assertEqual(self.rows('SELECT city FROM availability WHERE id=?',(ident,))[0]['city'],'Казань')
+        for city in (None,123,'x'*121):
+            with self.assertRaises(ValueError):
+                core.block(sid,'2027-03-01T10:00','2027-03-01T12:00','UTC',self.db,city=city)
+
+    def test_legacy_availability_migration(self):
+        import sqlite3
+        legacy=pathlib.Path(self.temp.name)/'legacy.db'
+        with sqlite3.connect(legacy) as c:
+            c.execute("CREATE TABLE availability(id TEXT PRIMARY KEY,specialist_id TEXT,start TEXT,end TEXT,timezone TEXT,active INTEGER DEFAULT 1)")
+            c.execute("INSERT INTO availability VALUES('old','person','2027-01-01T10:00','2027-01-01T12:00','UTC',1)")
+        core.init(legacy);core.init(legacy)
+        with core.connect(legacy) as c:
+            row=c.execute("SELECT * FROM availability WHERE id='old'").fetchone()
+            self.assertEqual((row['city'],row['activity'],row['active']),('','',1))
+
     def test_multi_manager_and_finance_privacy(self):
         core.route('crew',self.db);offers=self.rows('SELECT * FROM offer');o=offers[0]
         core.respond(o['id'],o['specialist_id'],'accept',1,'reply',self.db)

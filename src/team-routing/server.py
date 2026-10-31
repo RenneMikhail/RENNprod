@@ -97,8 +97,8 @@ class Handler(AccessMixin,BaseHTTPRequestHandler):
             elif action=='/api/manager':result=core.manager_accept(p['invitation'],p['actor'],p['key'])
             elif action=='/api/select':result=core.select_offer(p['offer'],p['actor'],p['key'])
             elif action=='/api/tick':result=core.tick()
-            elif action=='/api/block':result={'id':core.block(p['actor'],p['start'],p['end'],p['timezone'])}
-            elif action=='/api/block-update':core.update_block(p['id'],p['actor'],p.get('start'),p.get('end'),p.get('timezone'));result={'status':'updated'}
+            elif action=='/api/block':result={'id':core.block(p['actor'],p['start'],p['end'],p['timezone'],city=p.get('city',''),activity=p.get('activity',''))}
+            elif action=='/api/block-update':core.update_block(p['id'],p['actor'],p.get('start'),p.get('end'),p.get('timezone'),city=p.get('city'),activity=p.get('activity'));result={'status':'updated'}
             elif action in ['/api/verify','/api/auto','/api/ack','/api/channel','/api/intake','/api/discuss']:
                 with core.connect() as c:
                     if action=='/api/verify':c.execute('UPDATE specialist SET verified=? WHERE id=?',(int(p['verified']),p['id']))

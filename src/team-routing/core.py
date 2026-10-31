@@ -40,6 +40,10 @@ def init(path=None):
     CREATE TABLE IF NOT EXISTS bot_state(telegram_id INTEGER PRIMARY KEY,step INTEGER,payload TEXT);
     CREATE TABLE IF NOT EXISTS bot_meta(key TEXT PRIMARY KEY,value TEXT);
     '''); c.executemany('INSERT OR IGNORE INTO skill VALUES(?)',[(x,) for x in SKILLS])
+    with connect(path) as c:
+        columns={row['name'] for row in c.execute('PRAGMA table_info(availability)')}
+        for name in ('city','activity'):
+            if name not in columns:c.execute(f"ALTER TABLE availability ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
 def normalize_interval(start,end,tz):
     zone=ZoneInfo(tz)
     def cv(s):
@@ -76,23 +80,30 @@ def register(p,telegram_id=None,path=None,dbconn=None):
 
 def busy(c,sid,start,end):
     return bool(c.execute("SELECT 1 FROM manager_acceptance m JOIN orders o ON o.id=m.order_id WHERE m.specialist_id=? AND m.status='accepted' AND o.start<? AND o.end>?",(sid,end,start)).fetchone() or c.execute('SELECT 1 FROM availability WHERE specialist_id=? AND active=1 AND start<? AND end>?',(sid,end,start)).fetchone() or c.execute('SELECT 1 FROM assignment a JOIN role_slot s ON s.id=a.slot_id JOIN orders o ON o.id=s.order_id WHERE a.specialist_id=? AND o.start<? AND o.end>?',(sid,end,start)).fetchone())
-def block(sid,start,end,tz,path=None):
+def availability_details(city,activity):
+    for value,limit in ((city,120),(activity,200)):
+        if not isinstance(value,str) or len(value)>limit:raise ValueError('Некорректный город или описание занятости')
+    return city.strip(),activity.strip()
+
+def block(sid,start,end,tz,path=None,city='',activity=''):
+    city,activity=availability_details(city,activity)
     a,b=normalize_interval(start,end,tz)
     with connect(path) as c:
         c.execute('BEGIN IMMEDIATE')
         if busy(c,sid,a,b):raise ValueError('Пересечение с занятостью или подтверждённым назначением')
-        ident=uid();c.execute('INSERT INTO availability VALUES(?,?,?,?,?,1)',(ident,sid,a,b,tz));c.commit();return ident
+        ident=uid();c.execute('INSERT INTO availability(id,specialist_id,start,end,timezone,active,city,activity) VALUES(?,?,?,?,?,1,?,?)',(ident,sid,a,b,tz,city,activity));c.commit();return ident
 
-def update_block(ident,sid,start=None,end=None,tz=None,path=None):
+def update_block(ident,sid,start=None,end=None,tz=None,path=None,city=None,activity=None):
     with connect(path) as c:
         c.execute('BEGIN IMMEDIATE')
         old=c.execute('SELECT * FROM availability WHERE id=? AND specialist_id=?',(ident,sid)).fetchone()
         if not old:raise ValueError('Интервал не найден')
+        city,activity=availability_details(old['city'] if city is None else city,old['activity'] if activity is None else activity)
         c.execute('UPDATE availability SET active=0 WHERE id=?',(ident,))
         if start:
             a,b=normalize_interval(start,end,tz)
             if busy(c,sid,a,b):raise ValueError('Интервал конфликтует с назначением/занятостью')
-            c.execute('UPDATE availability SET start=?,end=?,timezone=?,active=1 WHERE id=?',(a,b,tz,ident))
+            c.execute('UPDATE availability SET start=?,end=?,timezone=?,city=?,activity=?,active=1 WHERE id=?',(a,b,tz,city,activity,ident))
         c.commit()
 
 def candidates(c,slot):

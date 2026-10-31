@@ -70,7 +70,7 @@ def handle(message,connection=None):
                 if text.startswith('/busy '):
                     a,b,tz=text[6:].split('|');a,b=core.normalize_interval(a.strip(),b.strip(),tz.strip())
                     if core.busy(c,person[0],a,b):return 'Интервал пересекает занятость или подтверждённое назначение.'
-                    bid=core.uid();c.execute('INSERT INTO availability VALUES(?,?,?,?,?,1)',(bid,person[0],a,b,tz.strip()));return 'Занятость сохранена: '+bid
+                    bid=core.uid();c.execute('INSERT INTO availability(id,specialist_id,start,end,timezone,active) VALUES(?,?,?,?,?,1)',(bid,person[0],a,b,tz.strip()));return 'Занятость сохранена: '+bid
                 bid=text[9:].strip();r=c.execute('UPDATE availability SET active=0 WHERE id=? AND specialist_id=?',(bid,person[0]));return 'Блокировка отменена.' if r.rowcount else 'Блокировка не найдена.'
             except Exception:return 'Формат: /busy 2026-12-01T10:00|2026-12-01T12:00|Europe/Moscow или /unblock ID'
         if text=='/profile':
