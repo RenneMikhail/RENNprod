@@ -1,5 +1,5 @@
 """Outbound polling only; only responds to inbound private user messages. Token never logged."""
-import json, os, sys, time, urllib.request, urllib.error, fcntl, secrets
+import math, json, os, sys, time, urllib.request, urllib.error, fcntl, secrets, sqlite3
 import core
 def token():
     direct=os.environ.get('TELEGRAM_BOT_TOKEN','').strip()
@@ -39,7 +39,7 @@ def parse_field(field,text):
         values={'mobility':['city','travel','remote'],'equipment':['none','camera','camera_audio','studio'],'currency':['RUB','EUR','USD']}
         if t not in values[field]:raise ValueError('Выберите один из перечисленных вариантов')
     if field=='rate':
-        if float(t)<=0:raise ValueError('Нужно положительное число')
+        if not math.isfinite(float(t)) or float(t)<=0:raise ValueError('Нужно положительное число')
     if field=='email' and '@' not in t:raise ValueError('Укажите email')
     if field=='timezone':core.ZoneInfo(t)
     if field=='portfolio' and not t.startswith(('https://','http://')):raise ValueError('Нужна https:// ссылка')
@@ -48,16 +48,56 @@ def parse_field(field,text):
     return '' if field=='phone' and t=='-' else t
 
 def handle(message,connection=None):
-    if message.get('chat',{}).get('type')!='private' or message.get('from',{}).get('is_bot'):return None
+    if message.get('chat',{}).get('type')!='private' or message.get('from',{}).get('is_bot') or message.get('chat',{}).get('id')!=message.get('from',{}).get('id'):return None
     ident=message['from']['id'];text=message.get('text','').strip()
     if not text:return 'Отправьте текстовый ответ или /start.'
     with (core.nullcontext(connection) if connection else core.connect()) as c:
+        if text.split(' ')[0]=='/link':
+            import telegram_link
+            try:
+                telegram_link.consume(text.partition(' ')[2].strip(),ident,c)
+                return {'text':'Telegram привязан к вашему кабинету. /offers — предложения.'}
+            except (ValueError, sqlite3.IntegrityError):
+                # Never echo the bearer code or database exception to the chat.
+                return {'text':'Привязка не выполнена. Получите новый код в своём кабинете; проверьте существующую привязку.'}
         if text.split(' ')[0] in ['/start','/cancel']:
             c.execute('DELETE FROM bot_state WHERE telegram_id=?',(ident,))
             if text=='/cancel':return 'Черновик удалён. Сохранённый профиль остаётся в базе; удаление через владельца. /start — начать заново.'
             p={'telegram':'@'+message['from'].get('username','') if message['from'].get('username') else '', 'contact_verified':False}
             c.execute('INSERT INTO bot_state VALUES(?,0,?)',(ident,json.dumps(p)))
             return 'RENN Prod · проектное сотрудничество. Анкета сохраняется на локальном Mac владельца. /cancel — удалить черновик; /profile — статус. '+FIELDS[0][1]
+        if text=='/requests':
+            import auth,telegram_link
+            actor=telegram_link.principal(ident,c)
+            if not actor or actor['role'] not in ('owner','manager') or not auth.allowed(actor,'tasks:read'):
+                return 'Заявки доступны привязанному владельцу или менеджеру. Привяжите Telegram в своём кабинете.'
+            c.execute("CREATE TABLE IF NOT EXISTS intake_lifecycle(intake_id TEXT PRIMARY KEY REFERENCES intake(id),status TEXT NOT NULL,updated_at TEXT NOT NULL)")
+            rows=c.execute("SELECT i.id,i.payload,COALESCE(l.status,'new') AS status FROM intake i LEFT JOIN intake_lifecycle l ON l.intake_id=i.id WHERE i.kind='client' ORDER BY i.created_at DESC,i.id DESC LIMIT 10").fetchall()
+            if not rows:return 'Клиентских заявок пока нет.'
+            labels={'new':'Новая','working':'В работе','archive':'Архив'}
+            lines=['Последние клиентские заявки · до 10:'];keyboard=[]
+            clean=lambda value:' '.join(str(value or 'Не указано').split())[:80]
+            for row in rows:
+                try:p=json.loads(row['payload'])
+                except (ValueError,TypeError):p={}
+                if not isinstance(p,dict):p={}
+                lines.append(f"{clean(row['id'])}\n{clean(p.get('city'))} · {clean(p.get('service'))} · {labels.get(row['status'],'Неизвестно')}")
+                if auth.allowed(actor,'tasks:approve') and row['status'] in ('new','working'):
+                    action=f"intake:{row['id']}:{row['status']}"
+                    if len(action.encode())<=64:
+                        keyboard.append([{'text':f"{len(lines)-1} · "+('В работу' if row['status']=='new' else 'В архив'),'callback_data':action}])
+            result='\n\n'.join(lines)
+            return {'text':result,'reply_markup':{'inline_keyboard':keyboard}} if keyboard else result
+        if text=='/offers':
+            rows=c.execute("SELECT f.*,o.title,o.city,o.start FROM offer f JOIN specialist p ON p.id=f.specialist_id JOIN role_slot r ON r.id=f.slot_id JOIN orders o ON o.id=r.order_id WHERE p.telegram_id=? AND f.status='pending' AND f.deadline>? ORDER BY f.deadline LIMIT 5",(ident,core.now())).fetchall()
+            if not rows:return 'Нет новых предложений.'
+            lines=[];keyboard=[]
+            for i,r in enumerate(rows,1):
+                terms=json.loads(r['terms'])
+                label=lambda value:str(value or 'Не указано')[:90]
+                lines.append(f"{i}. {label(r['title'])}\n{label(r['city'])} · {label(terms.get('start',r['start']))}\n{label(terms.get('deliverable'))}\nОплата: {label(terms.get('fee'))} {label(terms.get('currency'))}")
+                keyboard.append([{'text':f'{i} · Взять','callback_data':f"offer:{r['id']}:{r['version']}:a"},{'text':f'{i} · Отказаться','callback_data':f"offer:{r['id']}:{r['version']}:d"}])
+            return {'text':'Предложения (принятие — отклик, назначение подтверждает менеджер):\n'+'\n'.join(lines),'reply_markup':{'inline_keyboard':keyboard}}
         if text=='/blocks':
             person=c.execute('SELECT id FROM specialist WHERE telegram_id=?',(ident,)).fetchone()
             if not person:return 'Сначала заполните анкету: /start'
@@ -112,6 +152,30 @@ def prompt(ident,connection):
 def callback(query,c):
     sender=query.get('from',{});msg=query.get('message',{});ident=sender.get('id')
     if not ident or sender.get('is_bot') or msg.get('chat',{}).get('type')!='private' or msg['chat'].get('id')!=ident:return 'Кнопка недоступна.'
+    if query.get('data','').startswith('intake:'):
+        import auth,telegram_link,intake_delivery
+        actor=telegram_link.principal(ident,c)
+        if not actor or actor['role'] not in ('owner','manager') or not auth.allowed(actor,'tasks:approve'):
+            return 'Нет права управлять заявками.'
+        parts=query['data'].split(':')
+        if len(parts)!=3 or parts[2] not in ('new','working'):
+            return 'Кнопка заявки недоступна. /requests'
+        # Read and write under process_update's transaction. Never trust button status.
+        intake_delivery.list_intakes(c)
+        row=c.execute("SELECT COALESCE(l.status,'new') AS status FROM intake i LEFT JOIN intake_lifecycle l ON l.intake_id=i.id WHERE i.id=? AND i.kind='client'",(parts[1],)).fetchone()
+        if not row or row['status']!=parts[2]:
+            return 'Статус уже изменился. Обновите список: /requests'
+        target={'new':'working','working':'archive'}[parts[2]]
+        intake_delivery.set_status(c,parts[1],target)
+        return 'Заявка '+('в работе.' if target=='working' else 'в архиве.')+' /requests'
+    if query.get('data','').startswith('offer:'):
+        parts=query['data'].split(':')
+        person=c.execute('SELECT id FROM specialist WHERE telegram_id=?',(ident,)).fetchone()
+        if len(parts)!=4 or not person or parts[3] not in ['a','d']:return 'Предложение недоступно.'
+        try:
+            result=core.respond_in_connection(c,parts[1],person[0],'accept' if parts[3]=='a' else 'decline',int(parts[2]))
+        except (ValueError,TypeError):return 'Предложение недоступно или условия изменились. /offers'
+        return 'Отклик принят. /offers' if result['status']!='declined' else 'Предложение отклонено. /offers'
     st=c.execute('SELECT * FROM bot_state WHERE telegram_id=?',(ident,)).fetchone()
     if not st:return 'Анкета уже завершена. /profile — статус.'
     p=json.loads(st['payload']);parts=query.get('data','').split(':');field=FIELDS[st['step']][0];xs=choices(field)
@@ -147,7 +211,12 @@ def process_update(update):
             for key in ['_ui_nonce','_ui_step','_selected']:p.pop(key,None)
             c.execute('UPDATE bot_state SET payload=? WHERE telegram_id=?',(json.dumps(p,ensure_ascii=False),ident))
         prompt(ident,c)
-        c.execute('INSERT INTO command VALUES(?,?)',(event,json.dumps(reply,ensure_ascii=False)));c.commit();return reply
+        c.execute('INSERT INTO command VALUES(?,?)',(event,json.dumps(reply,ensure_ascii=False)));c.commit()
+        if query and query.get('data','').startswith('offer:') and reply=='Предложение отклонено. /offers':
+            offer_id=query['data'].split(':')[1]
+            order=c.execute('SELECT r.order_id FROM offer f JOIN role_slot r ON r.id=f.slot_id WHERE f.id=?',(offer_id,)).fetchone()
+            if order:core.route(order[0])
+        return reply
 
 def main():
     core.init();lock=open(core.ROOT/'data'/'bot.lock','w')
@@ -169,7 +238,7 @@ def main():
                 if query:call('answerCallbackQuery',{'callback_query_id':query['id']})
                 with core.connect() as c:ui=prompt(ident,c)
                 if reply and msg.get('chat',{}).get('type')=='private' and msg['chat'].get('id')==ident:
-                    payload={'chat_id':msg['chat']['id'],**(ui or {'text':reply})}
+                    payload={'chat_id':msg['chat']['id'],**(reply if isinstance(reply,dict) else ui or {'text':reply})}
                     if query and ui:
                         payload['message_id']=msg['message_id']
                         call('editMessageText',payload)

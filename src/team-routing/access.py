@@ -1,9 +1,16 @@
 """HTTP authentication boundary for the loopback prototype."""
-import io,json,html
+import io,json,html,sqlite3,os
 from http.cookies import SimpleCookie
 from urllib.parse import urlparse,parse_qs,urlencode
-import auth,core
+import auth,core,intake_delivery,telegram_link,question_delivery
 LOGIN='''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RENN Prod · Вход</title><style>body{background:#111315;color:#eee;font:18px/1.5 system-ui;max-width:420px;margin:10vh auto;padding:20px}input,button{box-sizing:border-box;display:block;width:100%;padding:14px;margin:12px 0;font:inherit}button{background:#ffad29;border:0}a{color:#ffad29}</style><h1>Вход в RENN Prod</h1><form><label>Имя пользователя<input name="username" autocomplete="username" required></label><label>Пароль<input name="password" type="password" autocomplete="current-password" required></label><button>Войти</button></form><p role="status" id="status"></p><script>document.querySelector('form').onsubmit=async e=>{e.preventDefault();try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});const j=await r.json();if(!r.ok)throw Error(j.error);location.assign(j.role==='employee'?'/employee':'/crm/')}catch(e){document.querySelector('#status').textContent=e.message}}</script></html>'''
+SECURE=os.environ.get('RENN_SECURE')=='1'  # set behind an HTTPS reverse proxy
+SCHEME='https' if SECURE else 'http'
+def allowed_hosts(port):
+ """Loopback by default; RENN_ALLOWED_HOSTS='host[:port],...' adds public names."""
+ extra=[h.strip() for h in os.environ.get('RENN_ALLOWED_HOSTS','').split(',') if h.strip()]
+ return {'127.0.0.1:'+str(port),*extra}
+def secure_cookie(cookie):return cookie+('; Secure' if SECURE else '')
 class AccessMixin:
  def account_link(self):
   principal=self.get_user()
@@ -15,8 +22,8 @@ class AccessMixin:
   try:
    c=SimpleCookie(self.headers.get('Cookie',''));return c['rp_session'].value if 'rp_session' in c else ''
   except Exception:return ''
- def host_ok(self):return self.headers.get('Host')=='127.0.0.1:'+str(self.server.server_port)
- def origin_ok(self):return not self.headers.get('Origin') or self.headers['Origin']=='http://'+self.headers.get('Host','')
+ def host_ok(self):return self.headers.get('Host') in allowed_hosts(self.server.server_port)
+ def origin_ok(self):return not self.headers.get('Origin') or self.headers['Origin']==SCHEME+'://'+self.headers.get('Host','')
  def get_user(self):return auth.principal(self.cookie())
  def body(self):
   n=int(self.headers.get('Content-Length',0))
@@ -25,13 +32,24 @@ class AccessMixin:
   if not isinstance(p,dict):raise ValueError('JSON object required')
   return p
  def response_cookie(self,payload,cookie,status=200):
-  raw=json.dumps(payload,ensure_ascii=False).encode();self.send_response(status);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Cache-Control','no-store');self.send_header('Set-Cookie',cookie);self.end_headers();self.wfile.write(raw)
+  raw=json.dumps(payload,ensure_ascii=False).encode();self.send_response(status);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.send_header('Set-Cookie',secure_cookie(cookie));self.send_header('X-Frame-Options','DENY');self.send_header('Referrer-Policy','no-referrer');self.end_headers();self.wfile.write(raw)
  def do_GET(self):
   if not self.host_ok():return self.send({'error':'Loopback host required'},403)
   route=urlparse(self.path).path;p=self.get_user()
   if route=='/login':return self.send(LOGIN,200,'text/html')
   if route=='/employee.js':return self.send((core.ROOT/'employee.js').read_text(),200,'text/javascript')
   if route=='/api/me':return self.send(p or {'error':'Войдите в систему'},200 if p else 401)
+  if route=='/api/delivery/status':
+   if not p:return self.send({'error':'Войдите в систему'},401)
+   if p['role']!='owner':return self.send({'error':'Только владелец'},403)
+   with core.connect() as c:state=intake_delivery.delivery_status(c)
+   return self.send(state)
+  if route=='/api/questions':
+   if not p:return self.send({'error':'Войдите в систему'},401)
+   if p['role'] not in ('owner','manager') or not auth.allowed(p,'tasks:read'):return self.send({'error':'Нет доступа'},403)
+   with core.connect() as c:rows=question_delivery.list_questions(c,p)
+   return self.send(rows)
+  if route=='/api/account/telegram':return self.send(telegram_link.status(p) if p else {'error':'Войдите в систему'},200 if p else 401)
   if route=='/api/account/profile':return self.send(auth.profile(p) if p else {'error':'Войдите в систему'},200 if p else 401)
   if route=='/account':
    if not p:
@@ -71,8 +89,8 @@ class AccessMixin:
    if route!='/employee' and route!='/api/workspace' and not auth.allowed(p,'dashboard:read'):return self.send({'error':'Нет доступа к панели менеджера'},403)
    if route=='/employee':return self.send((core.ROOT/'index.html').read_text().replace('__SESSION__',self.session_value()).replace('<nav>','<nav>'+self.account_link()),200,'text/html')
    if route=='/api/workspace':
-    q=parse_qs(urlparse(self.path).query);actor=p.get('specialist_id') if p['role']=='employee' else 'owner'
-    if p['role']=='employee' and q.get('actor',[actor])[0]!=actor:return self.send({'error':'Чужой профиль'},403)
+    q=parse_qs(urlparse(self.path).query);actor='owner' if p['role']=='owner' else p.get('specialist_id')
+    if not actor or p['role']!='owner' and q.get('actor',[actor])[0]!=actor:return self.send({'error':'Чужой профиль'},403)
     self.path='/api/workspace?'+urlencode({'order':q.get('order',[''])[0],'actor':actor})
   return self._local_get()
  def do_POST(self):
@@ -87,15 +105,29 @@ class AccessMixin:
    user=self.get_user()
    if route in ['/api/register','/api/intake']:return self._local_post()
    if not user:return self.send({'error':'Войдите в систему'},401)
-   if route=='/api/logout':auth.logout(self.cookie());return self.response_cookie({'status':'signed_out'},'rp_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+   if route=='/api/delivery/retry':
+    if user['role']!='owner':return self.send({'error':'Только владелец'},403)
+    p=self.body()
+    with core.connect() as c:intake_delivery.retry_delivery(c,p.get('id'))
+    return self.send({'status':'queued'})
+   if route=='/api/logout':self.body();auth.logout(self.cookie());return self.response_cookie({'status':'signed_out'},'rp_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+   if route=='/api/account/telegram':
+    self.body();return self.send(telegram_link.issue(user))
+   if route=='/api/account/telegram/unlink':
+    self.body();return self.send(telegram_link.unlink(user))
    if route=='/api/account/profile':return self.send(auth.update_profile(user,self.body()))
    if route=='/api/account/password':
     p=self.body()
     if set(p)!={'current_password','new_password'}:raise ValueError('Invalid password fields')
     auth.change_password(user,p['current_password'],p['new_password'])
     return self.response_cookie({'status':'signed_out','message':'Пароль изменён. Войдите заново.'},'rp_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
-   permissions={'/api/verify':'employees:approve','/api/staff/add':'employees:add','/api/route':'tasks:approve','/api/select':'tasks:approve','/api/auto':'tasks:approve','/api/tick':'tasks:approve','/api/ack':'dashboard:read','/api/channel':'dashboard:read'}
+   permissions={'/api/intake/project':'tasks:approve','/api/intake/status':'tasks:approve','/api/verify':'employees:approve','/api/staff/add':'employees:add','/api/route':'tasks:approve','/api/select':'tasks:approve','/api/auto':'tasks:approve','/api/tick':'tasks:approve','/api/ack':'dashboard:read','/api/channel':'dashboard:read'}
    if route in permissions and not auth.allowed(user,permissions[route]):return self.send({'error':'Недостаточно прав'},403)
+   if route=='/api/intake/project':
+    if user['role'] not in ('owner','manager'):return self.send({'error':'Нет доступа'},403)
+    p=self.body()
+    with core.connect() as c:ident=intake_delivery.create_project(c,p)
+    return self.send({'order_id':ident,'status':'saved'})
    if route in ['/api/accounts/permissions','/api/accounts/create']:
     if user['role']!='owner':return self.send({'error':'Только владелец'},403)
     p=self.body()
@@ -113,7 +145,7 @@ class AccessMixin:
      previous=c.execute('SELECT id FROM employee_question WHERE specialist_id=? AND command_key=?',(sid,key)).fetchone()
      ident=previous['id'] if previous else core.uid()
      if not previous:c.execute('INSERT INTO employee_question VALUES(?,?,?,?,?,?)',(ident,sid,p['offer'],body.strip(),core.now(),key))
-    return self.send({'id':ident,'status':'saved','message':'Вопрос сохранён в системе; внешняя доставка не подключена'})
+    return self.send({'id':ident,'status':'saved','message':'Вопрос сохранён. Уведомление назначенному менеджеру ожидает отправки в Telegram.'})
    if route=='/api/profile':
     if not auth.allowed(user,'self:update'):return self.send({'error':'Нет доступа'},403)
     patch=self.body();sid=user['specialist_id']
@@ -136,16 +168,15 @@ class AccessMixin:
     return self.send({'status':'saved','message':'Профиль сохранён'})
    if user['role']=='employee' and route not in ['/api/block','/api/block-update','/api/respond','/api/workspace','/api/discuss','/api/manager']:return self.send({'error':'Нет доступа'},403)
    if route in ['/api/block','/api/block-update','/api/respond','/api/discuss','/api/manager','/api/select']:
-    p=self.body();actor=user.get('specialist_id') if user['role']=='employee' else 'owner'
-    if user['role']=='employee':
-     if p.get('actor',actor)!=actor:return self.send({'error':'Чужой профиль'},403)
-     p['actor']=actor
-    elif route in ['/api/select','/api/discuss']:p['actor']='owner'
+    p=self.body()
+    if user['role']=='owner' and route in ['/api/select','/api/discuss']:
+     p['actor']='owner'
+    elif user['role']=='owner' and route in ['/api/block','/api/block-update']:
+     if not p.get('actor'):return self.send({'error':'Выберите специалиста'},400)
     else:
-     # Manager may not impersonate an employee's acceptance or availability.
-     if route in ['/api/respond','/api/manager']:
-      if not user.get('specialist_id') or p.get('actor',user['specialist_id'])!=user['specialist_id']:return self.send({'error':'Подтверждает сам специалист'},403)
-      p['actor']=user['specialist_id']
+     actor=user.get('specialist_id')
+     if not actor or p.get('actor',actor)!=actor:return self.send({'error':'Чужой профиль или профиль не привязан'},403)
+     p['actor']=actor
     raw=json.dumps(p).encode();self.rfile=io.BytesIO(raw);self.headers.replace_header('Content-Length',str(len(raw)))
    return self._local_post()
-  except (ValueError,KeyError,TypeError):return self.send({'error':'Запрос отклонён. Проверьте данные и права.'},400)
+  except (ValueError,KeyError,TypeError,sqlite3.IntegrityError):return self.send({'error':'Запрос отклонён. Проверьте данные и права.'},400)

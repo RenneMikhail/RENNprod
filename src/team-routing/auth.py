@@ -3,7 +3,7 @@ import argparse,contextlib,getpass,hashlib,hmac,json,os,secrets,sqlite3,time,uui
 from pathlib import Path
 DB=Path(__file__).parent/'data'/'auth.sqlite'
 BASE={'owner':{'*'},'manager':{'dashboard:read','employees:read','employees:update','tasks:read'},'employee':{'self:read','self:update','offers:respond','availability:self'}}
-DELEGATE={'employees:approve','employees:add','tasks:approve'}
+DELEGATE={'employees:approve','employees:add','tasks:approve','finances:read','contacts:read'}
 @contextlib.contextmanager
 def connect(path=None):
  p=Path(path or DB);p.parent.mkdir(parents=True,exist_ok=True);c=sqlite3.connect(p);c.row_factory=sqlite3.Row

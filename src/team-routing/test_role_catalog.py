@@ -18,6 +18,11 @@ class RoleCatalogTests(unittest.TestCase):
   for role,label in EXTRA.items():
    with self.subTest(role=role):self.assertEqual(bot.LABELS[role],label);self.assertEqual(core.validate(self.profile(role))['roles'],[role])
   with self.assertRaises(ValueError):core.validate(self.profile('invented-role'))
+ def test_nonfinite_rates_rejected(self):
+  for rate in ['nan','NaN','inf','-inf',float('nan'),float('inf')]:
+   with self.subTest(rate=str(rate)):
+    profile=self.profile('camera');profile['rate']=rate
+    with self.assertRaises(ValueError):core.validate(profile)
  def test_remote_designer_cg_ai_editor_but_no_physical_crew(self):
   for role in EXPECTED:
    with self.subTest(role=role):

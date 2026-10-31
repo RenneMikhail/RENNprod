@@ -3,6 +3,25 @@ const dialog = document.querySelector("#brief-dialog");
 const form = document.querySelector("#brief-form");
 const service = document.querySelector("#service");
 const status = document.querySelector("#form-status");
+for (const [id,label,max] of [['city','Город / City',120],['contact','Телефон, email или Telegram / Contact',240]]) {
+ const wrapper=document.createElement('label');wrapper.textContent=label;
+ const input=document.createElement('input');input.id=id;input.name=id;input.required=true;input.maxLength=max;
+ wrapper.append(input);form.insertBefore(wrapper,form.querySelector('[type="submit"]'));
+}
+let requestId=crypto.randomUUID();
+let draftStore;
+try { draftStore=window.RPDrafts.createDraftStore(sessionStorage); } catch {}
+function persistDraft(){
+  draftStore?.save({service:service.value,idea:document.querySelector('#idea').value,city:document.querySelector('#city').value,contact:document.querySelector('#contact').value,request_id:requestId});
+}
+function changedDraft(){requestId=crypto.randomUUID();persistDraft();}
+form.addEventListener('input',changedDraft);
+form.addEventListener('change',changedDraft);
+const restored=draftStore?.load();
+if(restored){
+  for(const id of ['service','idea','city','contact'])document.getElementById(id).value=restored[id];
+  requestId=restored.request_id;
+}
 const textBindings = [];
 const walker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT);
 while (walker.nextNode()) {
@@ -36,11 +55,11 @@ let opener;
 document.querySelectorAll("[data-service]").forEach(button => {
   button.addEventListener("click", () => {
     opener = button;
-    form.reset();
+    // Keep an unsent draft when reopening the dialog.
     status.textContent = "";
     delete status.dataset.key;
     delete status.dataset.id;
-    service.value = button.dataset.service;
+    if(button.dataset.service && button.dataset.service!==service.value){service.value = button.dataset.service;changedDraft();}
     dialog.showModal();
     (service.value ? document.querySelector("#idea") : service).focus();
   });
@@ -52,7 +71,7 @@ dialog.addEventListener("click", event => {
   if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
 });
 dialog.addEventListener("close", () => {
-  form.reset();
+  // Keep an unsent draft on close.
   status.textContent = "";
     delete status.dataset.key;
     delete status.dataset.id;
@@ -78,10 +97,12 @@ form.addEventListener("submit", async event => {
     status.append(link);
     return;
   }
+  persistDraft();
   const submit = form.querySelector('[type="submit"]');
   submitting = true;
   submit.disabled = true;
   showStatus("sending");
+  const submittedRequestId = requestId;
   const idea = document.querySelector("#idea").value.trim();
   try {
     const response = await fetch("/api/intake", {
@@ -89,7 +110,7 @@ form.addEventListener("submit", async event => {
       headers: {"Content-Type":"application/json", "X-Local-Session":token},
       credentials: "same-origin",
       signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({kind:"client",source:"shooting-landing",service:service.value,locale,idea,test:/\b(?:TEST|DEMO)\b/i.test(idea)})
+      body: JSON.stringify({kind:"client",source:"shooting-landing",service:service.value,locale,idea,contact:document.querySelector("#contact").value.trim(),city:document.querySelector("#city").value.trim(),request_id:submittedRequestId,test:/\b(?:TEST|DEMO)\b/i.test(idea)})
     });
     if (!response.ok) throw new Error("Rejected");
     const result = await response.json();
@@ -98,7 +119,12 @@ form.addEventListener("submit", async event => {
       return;
     }
     showStatus("saved", result.id);
-    document.querySelector("#idea").value = "";
+    // Do not erase a newer draft edited while this request was in flight.
+    if (requestId === submittedRequestId) {
+      draftStore?.clear();
+      requestId=crypto.randomUUID();
+      document.querySelector("#idea").value = "";
+    }
   } catch {
     showStatus("failure");
   } finally {

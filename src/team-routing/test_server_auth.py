@@ -1,7 +1,7 @@
-import unittest,tempfile,pathlib,threading,http.client,json
+import unittest,tempfile,pathlib,threading,http.client,json,socket,io
 from unittest.mock import patch
 from http.server import ThreadingHTTPServer
-import core,auth,server
+import core,auth,server,intake_delivery
 class HTTPAccessTests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();r=pathlib.Path(self.tmp.name);self.patches=[patch.object(core,'DB',r/'core.sqlite'),patch.object(auth,'DB',r/'auth.sqlite')]
@@ -23,6 +23,135 @@ class HTTPAccessTests(unittest.TestCase):
   c.request('POST' if body is not None else 'GET',path,json.dumps(body) if body is not None else None,headers);r=c.getresponse();out=(r.status,r.read(),r.getheader('Set-Cookie'));c.close();return out
  def login(self,name):
   status,_,cookie=self.request('/api/login',{'username':name,'password':'test-password-long'},csrf=False);self.assertEqual(status,200);self.assertIn('HttpOnly',cookie);return cookie.split(';')[0]
+ def test_questions_do_not_bypass_assignment_through_state(self):
+  import question_delivery
+  with core.connect() as c:
+   slot=c.execute('SELECT id,order_id FROM role_slot LIMIT 1').fetchone()
+   c.execute('INSERT INTO offer VALUES(?,?,?,?,?,?,?)',('offer-for-question',slot['id'],self.sid,1,'{}','2099-01-01','pending'))
+   question_delivery.schema(c)
+   c.execute('INSERT INTO employee_question VALUES(?,?,?,?,?,?)',('private-question',self.sid,'offer-for-question','PRIVATE QUESTION BODY',core.now(),'question-key'))
+   c.execute('DELETE FROM manager_acceptance WHERE order_id=?',(slot['order_id'],))
+  auth.create_user('questionmanager','test-password-long','manager',permissions=['contacts:read','finances:read'],specialist_id=self.sid)
+  manager=self.login('questionmanager');owner=self.login('owner')
+  self.assertEqual(json.loads(self.request('/api/questions',cookie=manager)[1]),[])
+  raw=self.request('/api/state',cookie=manager)[1]
+  self.assertNotIn(b'private-question',raw);self.assertNotIn(b'PRIVATE QUESTION BODY',raw)
+  with core.connect() as c:c.execute('INSERT INTO manager_acceptance VALUES(?,?,?,?)',('question-assigned',slot['order_id'],self.sid,'accepted'))
+  rows=json.loads(self.request('/api/questions',cookie=manager)[1])
+  self.assertEqual(rows[0]['body'],'PRIVATE QUESTION BODY')
+  self.assertEqual(json.loads(self.request('/api/questions',cookie=owner)[1])[0]['id'],'private-question')
+  self.assertNotIn(b'private-question',self.request('/api/state',cookie=owner)[1])
+  with core.connect() as c:c.execute("UPDATE manager_acceptance SET status='declined' WHERE id='question-assigned'")
+  self.assertEqual(json.loads(self.request('/api/questions',cookie=manager)[1]),[])
+ def test_project_from_intake(self):
+  ident=json.loads(self.request('/api/intake',{'kind':'client','city':'TEST City','idea':'TEST brief','contact':'PRIVATE'})[1])['id']
+  body={'id':ident,'title':'TEST project','start':'2026-12-01T10:00','end':'2026-12-01T12:00','timezone':'Europe/Moscow'}
+  self.assertEqual(self.request('/api/intake/project',body)[0],401)
+  for name in ('manager','employee'):
+   self.assertEqual(self.request('/api/intake/project',body,cookie=self.login(name))[0],403)
+  owner=self.login('owner')
+  self.assertEqual(self.request('/api/intake/project',body,cookie=owner,csrf=False)[0],403)
+  self.assertEqual(self.request('/api/intake/project',{**body,'end':body['start']},cookie=owner)[0],400)
+  status,raw,_=self.request('/api/intake/project',body,cookie=owner)
+  self.assertEqual(status,200);project=json.loads(raw)['order_id']
+  self.assertEqual(json.loads(self.request('/api/intake/project',body,cookie=owner)[1])['order_id'],project)
+  with core.connect() as c:
+   row=c.execute('SELECT * FROM orders WHERE id=?',(project,)).fetchone()
+   self.assertEqual(row['city'],'TEST City');self.assertNotIn('PRIVATE',row['brief'])
+   self.assertEqual(c.execute('SELECT COUNT(*) FROM intake_project WHERE intake_id=?',(ident,)).fetchone()[0],1)
+   intake=next(r for r in intake_delivery.list_intakes(c) if r['id']==ident)
+   self.assertEqual(intake['order_id'],project);self.assertEqual(intake['status'],'working')
+ def test_telegram_binding_auth_csrf_and_account_isolation(self):
+  self.assertEqual(self.request('/api/account/telegram')[0],401)
+  owner=self.login('owner');employee=self.login('employee')
+  self.assertEqual(self.request('/api/account/telegram',{},cookie=owner,csrf=False)[0],403)
+  status,raw,_=self.request('/api/account/telegram',{},cookie=owner)
+  self.assertEqual(status,200)
+  import telegram_link
+  with core.connect() as c:telegram_link.consume(json.loads(raw)['code'],12345,c)
+  self.assertTrue(json.loads(self.request('/api/account/telegram',cookie=owner)[1])['linked'])
+  self.assertFalse(json.loads(self.request('/api/account/telegram',cookie=employee)[1])['linked'])
+  self.assertEqual(self.request('/api/account/telegram/unlink',{},cookie=employee)[0],200)
+  self.assertTrue(json.loads(self.request('/api/account/telegram',cookie=owner)[1])['linked'])
+  self.assertEqual(self.request('/api/account/telegram/unlink',{},cookie=owner)[0],200)
+ def test_delivery_diagnostics_and_retry_owner_only(self):
+  ident=json.loads(self.request('/api/intake',{'kind':'client','contact':'TEST PRIVATE'})[1])['id']
+  with core.connect() as c:c.execute('UPDATE intake_outbox SET attempts=10 WHERE intake_id=?',(ident,))
+  for cookie in (None,self.login('manager'),self.login('employee')):
+   self.assertEqual(self.request('/api/delivery/status',cookie=cookie)[0],403 if cookie else 401)
+   self.assertEqual(self.request('/api/delivery/retry',{'id':ident},cookie=cookie)[0],403 if cookie else 401)
+  owner=self.login('owner')
+  with patch.dict('os.environ',{'TELEGRAM_BOT_TOKEN':'private-token','RENN_MANAGER_CHAT_ID':'private-chat'}):
+   code,raw,_=self.request('/api/delivery/status',cookie=owner)
+  self.assertEqual(code,200);state=json.loads(raw)
+  self.assertEqual(state,{'configured':True,'queued':0,'retry_exhausted':1,'sent':0})
+  self.assertNotIn(b'private',raw.lower());self.assertNotIn(b'TEST',raw)
+  self.assertEqual(self.request('/api/delivery/retry',{'id':ident},cookie=owner,csrf=False)[0],403)
+  self.assertEqual(self.request('/api/delivery/retry',{'id':ident},cookie=owner)[0],200)
+  with core.connect() as c:
+   self.assertEqual(c.execute('SELECT attempts FROM intake_outbox WHERE intake_id=?',(ident,)).fetchone()[0],0)
+   c.execute("UPDATE intake_outbox SET status='sent' WHERE intake_id=?",(ident,))
+  self.assertEqual(self.request('/api/delivery/retry',{'id':ident},cookie=owner)[0],400)
+  self.assertEqual(self.request('/api/delivery/retry',{'id':'missing'},cookie=owner)[0],400)
+ def test_intake_contact_permissions_and_retry(self):
+  payload={'kind':'client','source':'shooting-landing','service':'reels','locale':'ru','idea':'TEST budget 10000','contact':'test@example.invalid','city':'TEST City','request_id':'test-request-123456'}
+  status,body,_=self.request('/api/intake',payload);self.assertEqual(status,200);ident=json.loads(body)['id']
+  self.assertEqual(json.loads(self.request('/api/intake',payload)[1])['id'],ident)
+  with core.connect() as c:
+   self.assertEqual(c.execute('SELECT count(*) FROM intake').fetchone()[0],1)
+   self.assertEqual(c.execute('SELECT count(*) FROM intake_outbox').fetchone()[0],1)
+  owner=self.login('owner');manager=self.login('manager')
+  raw=self.request('/api/intakes',cookie=owner)[1];self.assertIn(b'test@example.invalid',raw)
+  raw=self.request('/api/intakes',cookie=manager)[1];self.assertNotIn(b'test@example.invalid',raw);self.assertNotIn(b'10000',raw)
+  self.assertEqual(self.request('/api/intakes',cookie=self.login('employee'))[0],403)
+  auth.create_user('privileged','test-password-long','manager',permissions=['contacts:read','finances:read'])
+  raw=self.request('/api/intakes',cookie=self.login('privileged'))[1];self.assertIn(b'test@example.invalid',raw)
+  with patch.dict('os.environ',{'TELEGRAM_BOT_TOKEN':'fake','RENN_MANAGER_CHAT_ID':'fake'}), patch('urllib.request.urlopen',return_value=io.BytesIO(b'{"ok":true,"result":{"message_id":123}}')) as transport:
+   self.assertEqual(intake_delivery.flush()['sent'],1)
+   self.assertIn(ident,json.loads(transport.call_args.args[0].data)['text'])
+  with core.connect() as c:self.assertEqual(c.execute('SELECT status FROM intake_outbox WHERE intake_id=?',(ident,)).fetchone()[0],'sent')
+  del payload['contact'];self.assertEqual(self.request('/api/intake',payload)[0],400)
+ def test_intake_status_requires_grant_and_survives_reload(self):
+  ident=json.loads(self.request('/api/intake',{'kind':'client','contact':'TEST'})[1])['id']
+  payload={'id':ident,'status':'working'}
+  self.assertEqual(self.request('/api/intake/status',payload,cookie=self.login('employee'))[0],403)
+  self.assertEqual(self.request('/api/intake/status',payload,cookie=self.login('manager'))[0],403)
+  owner=self.login('owner')
+  self.assertEqual(self.request('/api/intake/status',payload,cookie=owner)[0],200)
+  self.assertEqual(json.loads(self.request('/api/intakes',cookie=owner)[1])[0]['status'],'working')
+  self.assertEqual(self.request('/api/intake/status',{'id':ident,'status':'bad'},cookie=owner)[0],400)
+
+ def test_specialist_finance_and_contact_projection(self):
+  manager=self.login('manager')
+  rows=json.loads(self.request('/api/specialists',cookie=manager)[1])
+  for row in rows:
+   self.assertNotIn('telegram_id',row)
+   for key in ('rate','email','phone','telegram'):self.assertNotIn(key,row['profile'])
+  rows=json.loads(self.request('/api/state',cookie=manager)[1])
+  for row in rows['role_slot']:self.assertNotIn('budget',row)
+  for row in rows['orders']:self.assertEqual(row['brief'],'{}')
+ def test_manager_cannot_spoof_availability_or_owner(self):
+  cookie=self.login('manager')
+  payload={'actor':self.sid,'start':'2027-01-01T10:00','end':'2027-01-01T12:00','timezone':'UTC'}
+  self.assertEqual(self.request('/api/block',payload,cookie=cookie)[0],403)
+  with core.connect() as c:self.assertEqual(c.execute('SELECT count(*) FROM availability').fetchone()[0],0)
+  auth.create_user('linkedmanager','test-password-long','manager',permissions=['tasks:approve'],specialist_id=self.sid)
+  linked=self.login('linkedmanager')
+  self.assertEqual(self.request('/api/select',{'actor':'owner','offer':'none','key':'spoof'},cookie=linked)[0],403)
+  self.assertEqual(self.request('/api/discuss',{'actor':'owner','order':'crew','body':'spoof'},cookie=linked)[0],403)
+  self.assertEqual(self.request('/api/workspace?order=crew&actor=owner',cookie=linked)[0],403)
+ def test_duplicate_account_returns_error_and_server_survives(self):
+  cookie=self.login('owner')
+  self.assertEqual(self.request('/api/accounts/create',{'username':'manager','password':'test-password-long','role':'manager'},cookie=cookie)[0],400)
+  self.assertEqual(self.request('/api/me',cookie=cookie)[0],200)
+ def test_negative_content_length_rejected(self):
+  c=http.client.HTTPConnection('127.0.0.1',self.port,timeout=2)
+  try:
+   c.request('POST','/api/intake',headers={'Content-Length':'-1','X-Local-Session':server.SESSION})
+   r=c.getresponse();self.assertEqual(r.status,400);r.read()
+  finally:
+   if c.sock:c.sock.shutdown(socket.SHUT_RDWR)
+   c.close()
  def test_account_profile_scope_and_csrf(self):
   self.assertEqual(self.request('/api/account/profile')[0],401)
   for role in ['owner','manager','employee']:

@@ -1,5 +1,5 @@
 """Ren Prod local routing domain. No external dependencies."""
-import sqlite3, json, uuid
+import sqlite3, json, uuid, math
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -62,7 +62,7 @@ def validate(p):
     if p['mobility'] not in ['city','travel','remote']:raise ValueError('Неверный формат работы')
     if p['currency'] not in ['RUB','EUR','USD']:raise ValueError('Неверная валюта')
     if p['equipment'] not in ['none','camera','camera_audio','studio']:raise ValueError('Неверная техника')
-    if float(p['rate'])<=0:raise ValueError('Ставка должна быть положительной')
+    if isinstance(p['rate'],bool) or not math.isfinite(float(p['rate'])) or float(p['rate'])<=0:raise ValueError('Ставка должна быть положительной')
     if '@' not in p['email']:raise ValueError('Укажите email')
     if not p['portfolio'].startswith(('https://','http://')):raise ValueError('Нужна ссылка на портфолио')
     ZoneInfo(p['timezone'])
@@ -177,19 +177,21 @@ def assign(c,offer):
     enqueue(c,o['id'],offer['specialist_id'],'assigned:'+offer['id'],deadline_work())
     return {'status':'assigned'}
 
+def respond_in_connection(c,offer_id,sid,decision,version):
+    x=c.execute('SELECT * FROM offer WHERE id=? AND specialist_id=?',(offer_id,sid)).fetchone()
+    if not x or x['status']!='pending':raise ValueError('Предложение недоступно')
+    if x['deadline']<=now():raise ValueError('Срок ответа истёк')
+    if x['version']!=int(version):raise ValueError('Подтвердите актуальную версию')
+    if decision not in ['accept','decline']:raise ValueError('Неверный ответ')
+    o=c.execute('SELECT o.* FROM orders o JOIN role_slot s ON o.id=s.order_id WHERE s.id=?',(x['slot_id'],)).fetchone()
+    if o['version']!=x['version']:raise ValueError('Условия изменились')
+    if decision=='decline':c.execute("UPDATE offer SET status='declined' WHERE id=?",(offer_id,));return {'status':'declined','order_id':o['id']}
+    count=c.execute('SELECT count(*) FROM role_slot WHERE order_id=?',(o['id'],)).fetchone()[0]
+    if count==1 and o['auto_assign']:return assign(c,x)
+    c.execute("UPDATE offer SET status='responded' WHERE id=?",(offer_id,));return {'status':'responded','order_id':o['id']}
+
 def respond(offer_id,sid,decision,version,key,path=None):
-    def run(c):
-        x=c.execute('SELECT * FROM offer WHERE id=? AND specialist_id=?',(offer_id,sid)).fetchone()
-        if not x or x['status']!='pending':raise ValueError('Предложение недоступно')
-        if x['deadline']<=now():raise ValueError('Срок ответа истёк')
-        if x['version']!=int(version):raise ValueError('Подтвердите актуальную версию')
-        if decision not in ['accept','decline']:raise ValueError('Неверный ответ')
-        o=c.execute('SELECT o.* FROM orders o JOIN role_slot s ON o.id=s.order_id WHERE s.id=?',(x['slot_id'],)).fetchone()
-        if o['version']!=x['version']:raise ValueError('Условия изменились')
-        if decision=='decline':c.execute("UPDATE offer SET status='declined' WHERE id=?",(offer_id,));return {'status':'declined','order_id':o['id']}
-        count=c.execute('SELECT count(*) FROM role_slot WHERE order_id=?',(o['id'],)).fetchone()[0]
-        if count==1 and o['auto_assign']:return assign(c,x)
-        c.execute("UPDATE offer SET status='responded' WHERE id=?",(offer_id,));return {'status':'responded','order_id':o['id']}
+    def run(c):return respond_in_connection(c,offer_id,sid,decision,version)
     r=transact(key,run,path)
     if r['status']=='declined':route(r['order_id'],path)
     return r
@@ -219,7 +221,7 @@ def tick(path=None):
         c.execute('BEGIN IMMEDIATE')
         ids=[r[0] for r in c.execute("SELECT DISTINCT s.order_id FROM offer f JOIN role_slot s ON s.id=f.slot_id WHERE f.status='pending' AND f.deadline<=?",(now(),))]
         c.execute("UPDATE offer SET status='expired' WHERE status='pending' AND deadline<=?",(now(),))
-        c.execute("UPDATE notification SET channel='email',status='queued' WHERE ack_at IS NULL AND channel='telegram' AND deadline<=?",(now(),));c.commit()
+        c.execute("UPDATE notification SET status='expired' WHERE status='queued' AND channel='telegram' AND deadline<=?",(now(),));c.commit()
     for oid in ids:route(oid,path)
     return {'expired_orders':len(ids)}
 
