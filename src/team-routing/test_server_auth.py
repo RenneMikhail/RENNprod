@@ -58,4 +58,20 @@ class HTTPAccessTests(unittest.TestCase):
  def test_origin_and_logout(self):
   c=self.login('owner');self.assertEqual(self.request('/api/logout',{},cookie=c,origin='https://example.invalid')[0],403)
   self.assertEqual(self.request('/api/logout',{},cookie=c)[0],200);self.assertEqual(self.request('/api/state',cookie=c)[0],401)
+ def test_password_page_and_session_revocation(self):
+  self.assertEqual(self.request('/account')[0],303)
+  for role in ['owner','manager','employee']:
+   cookie=self.login(role)
+   status,body,_=self.request('/account',cookie=cookie)
+   self.assertEqual(status,200);self.assertIn(b'new-password',body)
+   workspace='/employee' if role=='employee' else '/crm/'
+   self.assertIn(b'href="/account"',self.request(workspace,cookie=cookie)[1])
+   payload={'current_password':'test-password-long','new_password':'replacement-password-long'}
+   self.assertEqual(self.request('/api/account/password',payload,cookie=cookie,csrf=False)[0],403)
+   self.assertEqual(self.request('/api/account/password',payload,cookie=cookie,origin='https://example.invalid')[0],403)
+   self.assertEqual(self.request('/api/account/password',{**payload,'current_password':'wrong'},cookie=cookie)[0],400)
+   self.assertEqual(self.request('/api/me',cookie=cookie)[0],200)
+   status,_,expired=self.request('/api/account/password',payload,cookie=cookie)
+   self.assertEqual(status,200);self.assertIn('Max-Age=0',expired)
+   self.assertEqual(self.request('/api/me',cookie=cookie)[0],401)
 if __name__=='__main__':unittest.main()

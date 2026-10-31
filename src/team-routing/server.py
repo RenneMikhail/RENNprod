@@ -55,6 +55,7 @@ class Handler(AccessMixin,BaseHTTPRequestHandler):
             content=file.read_text()
             if filename=='index.html':
                 content=content.replace('__RP_LOCAL_SESSION__',SESSION)
+                content=content.replace('<main>','<main><a href="/account" style="display:block;text-align:right;padding:12px;color:#ffae29">Мой аккаунт</a>')
                 # Absolute local mount paths work for both /crm and /crm/.
                 content=content.replace('href="style.css"','href="/crm/style.css"')
                 for asset in ['app.js','team-api-adapter.js','locales.js','i18n.js']:

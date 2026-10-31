@@ -48,6 +48,14 @@ def principal(token,path=None):
 def logout(token,path=None):
  with connect(path) as c:c.execute('DELETE FROM session WHERE token=?',(hashlib.sha256(token.encode()).hexdigest(),))
 def allowed(p,permission):return bool(p and ('*' in p['permissions'] or permission in p['permissions']))
+def change_password(actor,current,replacement,path=None):
+ if not actor or not isinstance(current,str) or not isinstance(replacement,str) or not 12<=len(replacement)<=1024 or len(current)>1024 or current==replacement:raise ValueError('Invalid password change')
+ with connect(path) as c:
+  r=c.execute('SELECT * FROM account WHERE id=? AND active=1',(actor['id'],)).fetchone()
+  if not r or not hmac.compare_digest(digest(current,r['salt']),r['password']):raise ValueError('Invalid current password')
+  salt=secrets.token_hex(16)
+  c.execute('UPDATE account SET salt=?,password=? WHERE id=?',(salt,digest(replacement,salt),r['id']))
+  c.execute('DELETE FROM session WHERE user_id=?',(r['id'],))
 def delegate(actor,target,permissions,path=None):
  if not actor or actor['role']!='owner':raise ValueError('Owner required')
  if not set(permissions)<=DELEGATE:raise ValueError('Unknown permission')

@@ -26,6 +26,10 @@ class AccessMixin:
   if route=='/login':return self.send(LOGIN,200,'text/html')
   if route=='/employee.js':return self.send((core.ROOT/'employee.js').read_text(),200,'text/javascript')
   if route=='/api/me':return self.send(p or {'error':'Войдите в систему'},200 if p else 401)
+  if route=='/account':
+   if not p:
+    self.send_response(303);self.send_header('Location','/login');self.end_headers();return
+   return self.send((core.ROOT/'account.html').read_text().replace('__SESSION__',self.session_value()),200,'text/html')
   if route=='/api/employee/state':
    if not auth.allowed(p,'self:read'):return self.send({'error':'Нет доступа'},403)
    sid=p['specialist_id']
@@ -58,7 +62,7 @@ class AccessMixin:
      self.send_response(303);self.send_header('Location','/login');self.end_headers();return
     return self.send({'error':'Войдите в систему'},401)
    if route!='/employee' and route!='/api/workspace' and not auth.allowed(p,'dashboard:read'):return self.send({'error':'Нет доступа к панели менеджера'},403)
-   if route=='/employee':return self.send((core.ROOT/'index.html').read_text().replace('__SESSION__',self.session_value()),200,'text/html')
+   if route=='/employee':return self.send((core.ROOT/'index.html').read_text().replace('__SESSION__',self.session_value()).replace('<nav>','<nav><a href="/account">Мой аккаунт</a>'),200,'text/html')
    if route=='/api/workspace':
     q=parse_qs(urlparse(self.path).query);actor=p.get('specialist_id') if p['role']=='employee' else 'owner'
     if p['role']=='employee' and q.get('actor',[actor])[0]!=actor:return self.send({'error':'Чужой профиль'},403)
@@ -77,6 +81,11 @@ class AccessMixin:
    if route in ['/api/register','/api/intake']:return self._local_post()
    if not user:return self.send({'error':'Войдите в систему'},401)
    if route=='/api/logout':auth.logout(self.cookie());return self.response_cookie({'status':'signed_out'},'rp_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+   if route=='/api/account/password':
+    p=self.body()
+    if set(p)!={'current_password','new_password'}:raise ValueError('Invalid password fields')
+    auth.change_password(user,p['current_password'],p['new_password'])
+    return self.response_cookie({'status':'signed_out','message':'Пароль изменён. Войдите заново.'},'rp_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
    permissions={'/api/verify':'employees:approve','/api/staff/add':'employees:add','/api/route':'tasks:approve','/api/select':'tasks:approve','/api/auto':'tasks:approve','/api/tick':'tasks:approve','/api/ack':'dashboard:read','/api/channel':'dashboard:read'}
    if route in permissions and not auth.allowed(user,permissions[route]):return self.send({'error':'Недостаточно прав'},403)
    if route in ['/api/accounts/permissions','/api/accounts/create']:
