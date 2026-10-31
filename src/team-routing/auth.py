@@ -12,7 +12,7 @@ def connect(path=None):
   with c:yield c
  finally:c.close()
 def init(path=None):
- with connect(path) as c:c.executescript('''CREATE TABLE IF NOT EXISTS account(id TEXT PRIMARY KEY,username TEXT UNIQUE,salt TEXT,password TEXT,role TEXT,permissions TEXT,specialist_id TEXT,active INTEGER DEFAULT 1);CREATE TABLE IF NOT EXISTS session(token TEXT PRIMARY KEY,user_id TEXT,expires REAL);CREATE TABLE IF NOT EXISTS attempt(username TEXT PRIMARY KEY,failures INTEGER,until REAL);''')
+ with connect(path) as c:c.executescript('''CREATE TABLE IF NOT EXISTS account(id TEXT PRIMARY KEY,username TEXT UNIQUE,salt TEXT,password TEXT,role TEXT,permissions TEXT,specialist_id TEXT,active INTEGER DEFAULT 1);CREATE TABLE IF NOT EXISTS session(token TEXT PRIMARY KEY,user_id TEXT,expires REAL);CREATE TABLE IF NOT EXISTS attempt(username TEXT PRIMARY KEY,failures INTEGER,until REAL);CREATE TABLE IF NOT EXISTS account_profile(user_id TEXT PRIMARY KEY,data TEXT NOT NULL);''')
 def digest(password,salt):return hashlib.scrypt(password.encode(),salt=bytes.fromhex(salt),n=16384,r=8,p=1).hex()
 def create_user(username,password,role,permissions=(),specialist_id=None,path=None):
  username=username.casefold().strip()
@@ -56,6 +56,23 @@ def change_password(actor,current,replacement,path=None):
   salt=secrets.token_hex(16)
   c.execute('UPDATE account SET salt=?,password=? WHERE id=?',(salt,digest(replacement,salt),r['id']))
   c.execute('DELETE FROM session WHERE user_id=?',(r['id'],))
+PROFILE_LIMITS={'display_name':120,'bio':2000,'telegram':100,'email':254,'phone':40,'contact_preference':16}
+def profile(actor,path=None):
+ if not actor:raise ValueError('Account required')
+ with connect(path) as c:
+  row=c.execute('SELECT data FROM account_profile WHERE user_id=?',(actor['id'],)).fetchone()
+ return json.loads(row['data']) if row else {'display_name':actor['username'],'contact_preference':'telegram'}
+def update_profile(actor,patch,path=None):
+ if not actor or not isinstance(patch,dict) or not set(patch)<=set(PROFILE_LIMITS):raise ValueError('Invalid profile fields')
+ for key,value in patch.items():
+  if not isinstance(value,str) or len(value)>PROFILE_LIMITS[key] or any(ord(ch)<32 and ch not in '\n\t' for ch in value):raise ValueError('Invalid profile value')
+ if 'contact_preference' in patch and patch['contact_preference'] not in ['telegram','email','call','any']:raise ValueError('Invalid contact preference')
+ if 'display_name' in patch and not patch['display_name'].strip():raise ValueError('Name required')
+ data=profile(actor,path);data.update({k:v.strip() for k,v in patch.items()})
+ with connect(path) as c:
+  if not c.execute('SELECT id FROM account WHERE id=? AND active=1',(actor['id'],)).fetchone():raise ValueError('Account unavailable')
+  c.execute('INSERT INTO account_profile VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data',(actor['id'],json.dumps(data,ensure_ascii=False)))
+ return data
 def delegate(actor,target,permissions,path=None):
  if not actor or actor['role']!='owner':raise ValueError('Owner required')
  if not set(permissions)<=DELEGATE:raise ValueError('Unknown permission')

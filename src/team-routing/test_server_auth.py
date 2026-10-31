@@ -23,6 +23,18 @@ class HTTPAccessTests(unittest.TestCase):
   c.request('POST' if body is not None else 'GET',path,json.dumps(body) if body is not None else None,headers);r=c.getresponse();out=(r.status,r.read(),r.getheader('Set-Cookie'));c.close();return out
  def login(self,name):
   status,_,cookie=self.request('/api/login',{'username':name,'password':'test-password-long'},csrf=False);self.assertEqual(status,200);self.assertIn('HttpOnly',cookie);return cookie.split(';')[0]
+ def test_account_profile_scope_and_csrf(self):
+  self.assertEqual(self.request('/api/account/profile')[0],401)
+  for role in ['owner','manager','employee']:
+   cookie=self.login(role)
+   payload={'display_name':role+' имя','bio':'Описание','contact_preference':'telegram'}
+   self.assertEqual(self.request('/api/account/profile',payload,cookie=cookie,csrf=False)[0],403)
+   self.assertEqual(self.request('/api/account/profile',payload,cookie=cookie,origin='https://example.invalid')[0],403)
+   self.assertEqual(self.request('/api/account/profile',{**payload,'role':'owner'},cookie=cookie)[0],400)
+   self.assertEqual(self.request('/api/account/profile',payload,cookie=cookie)[0],200)
+   status,body,_=self.request('/api/account/profile',cookie=cookie)
+   self.assertEqual(status,200);self.assertEqual(json.loads(body)['display_name'],role+' имя')
+   self.assertNotIn('password',json.loads(body))
  def test_anonymous_private_denied(self):
   self.assertEqual(self.request('/api/state')[0],401);self.assertEqual(self.request('/crm/')[0],303)
  def test_employee_private_isolation(self):

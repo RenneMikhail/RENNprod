@@ -4,6 +4,18 @@ class AuthTests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.path=pathlib.Path(self.tmp.name)/'auth.sqlite';auth.init(self.path)
  def tearDown(self):self.tmp.cleanup()
+ def test_private_profiles_and_validation(self):
+  for name in ['owner','manager']:
+   auth.create_user(name,'test-password-long',name,path=self.path)
+  _,owner=auth.login('owner','test-password-long',path=self.path)
+  _,manager=auth.login('manager','test-password-long',path=self.path)
+  auth.update_profile(owner,{'display_name':'Иван','contact_preference':'email','bio':'Описание'},self.path)
+  self.assertEqual(auth.profile(owner,self.path)['display_name'],'Иван')
+  self.assertEqual(auth.profile(manager,self.path)['display_name'],'manager')
+  for patch in [{'role':'owner'},{'user_id':owner['id']},{'bio':[]},{'contact_preference':'unknown'},{'display_name':' '},{'bio':'a'*2001}]:
+   with self.assertRaises(ValueError):auth.update_profile(manager,patch,self.path)
+  auth.init(self.path)
+  self.assertEqual(auth.profile(owner,self.path)['bio'],'Описание')
  def test_roles(self):
   auth.create_user('owner','test-password-long','owner',path=self.path)
   auth.create_user('manager','test-password-long','manager',path=self.path)

@@ -1,10 +1,16 @@
 """HTTP authentication boundary for the loopback prototype."""
-import io,json
+import io,json,html
 from http.cookies import SimpleCookie
 from urllib.parse import urlparse,parse_qs,urlencode
 import auth,core
 LOGIN='''<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RENN Prod · Вход</title><style>body{background:#111315;color:#eee;font:18px/1.5 system-ui;max-width:420px;margin:10vh auto;padding:20px}input,button{box-sizing:border-box;display:block;width:100%;padding:14px;margin:12px 0;font:inherit}button{background:#ffad29;border:0}a{color:#ffad29}</style><h1>Вход в RENN Prod</h1><form><label>Имя пользователя<input name="username" autocomplete="username" required></label><label>Пароль<input name="password" type="password" autocomplete="current-password" required></label><button>Войти</button></form><p role="status" id="status"></p><script>document.querySelector('form').onsubmit=async e=>{e.preventDefault();try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});const j=await r.json();if(!r.ok)throw Error(j.error);location.assign(j.role==='employee'?'/employee':'/crm/')}catch(e){document.querySelector('#status').textContent=e.message}}</script></html>'''
 class AccessMixin:
+ def account_link(self):
+  principal=self.get_user()
+  if not principal:return ''
+  name=auth.profile(principal).get('display_name') or principal['username']
+  initial=html.escape(name[:1].upper());name=html.escape(name)
+  return '<a href="/account" aria-label="Мой аккаунт" style="display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:12px;color:#ffae29;overflow-wrap:anywhere"><span aria-hidden="true" style="display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:50%;background:#ffae29;color:#101314">'+initial+'</span><span>'+name+'</span></a>'
  def cookie(self):
   try:
    c=SimpleCookie(self.headers.get('Cookie',''));return c['rp_session'].value if 'rp_session' in c else ''
@@ -26,6 +32,7 @@ class AccessMixin:
   if route=='/login':return self.send(LOGIN,200,'text/html')
   if route=='/employee.js':return self.send((core.ROOT/'employee.js').read_text(),200,'text/javascript')
   if route=='/api/me':return self.send(p or {'error':'Войдите в систему'},200 if p else 401)
+  if route=='/api/account/profile':return self.send(auth.profile(p) if p else {'error':'Войдите в систему'},200 if p else 401)
   if route=='/account':
    if not p:
     self.send_response(303);self.send_header('Location','/login');self.end_headers();return
@@ -62,7 +69,7 @@ class AccessMixin:
      self.send_response(303);self.send_header('Location','/login');self.end_headers();return
     return self.send({'error':'Войдите в систему'},401)
    if route!='/employee' and route!='/api/workspace' and not auth.allowed(p,'dashboard:read'):return self.send({'error':'Нет доступа к панели менеджера'},403)
-   if route=='/employee':return self.send((core.ROOT/'index.html').read_text().replace('__SESSION__',self.session_value()).replace('<nav>','<nav><a href="/account">Мой аккаунт</a>'),200,'text/html')
+   if route=='/employee':return self.send((core.ROOT/'index.html').read_text().replace('__SESSION__',self.session_value()).replace('<nav>','<nav>'+self.account_link()),200,'text/html')
    if route=='/api/workspace':
     q=parse_qs(urlparse(self.path).query);actor=p.get('specialist_id') if p['role']=='employee' else 'owner'
     if p['role']=='employee' and q.get('actor',[actor])[0]!=actor:return self.send({'error':'Чужой профиль'},403)
@@ -81,6 +88,7 @@ class AccessMixin:
    if route in ['/api/register','/api/intake']:return self._local_post()
    if not user:return self.send({'error':'Войдите в систему'},401)
    if route=='/api/logout':auth.logout(self.cookie());return self.response_cookie({'status':'signed_out'},'rp_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+   if route=='/api/account/profile':return self.send(auth.update_profile(user,self.body()))
    if route=='/api/account/password':
     p=self.body()
     if set(p)!={'current_password','new_password'}:raise ValueError('Invalid password fields')
