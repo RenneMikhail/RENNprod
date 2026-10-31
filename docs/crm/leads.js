@@ -73,12 +73,13 @@
   function dateStr(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function addDays(now, n) { const d = new Date(now.getTime()); d.setDate(d.getDate() + n); return dateStr(d); }
   // Допустимые контакты: email, Telegram @имя (5–32 символа после @ (правило Telegram)) или ссылка t.me/имя.
-  // Имя без @ и без t.me не принимается — поле честно обещает «Telegram или email».
+  // Имя без @ и без t.me не принимается — поле честно обещает «Telegram, телефон или email».
   function validContact(raw) {
     if (typeof raw !== "string" || CTRL_RE.test(raw)) return false;
     const v = raw.trim();
     if (v.length > LIMITS.contact) return false;
     if (EMAIL_RE.test(v)) return true;
+    if (/^\+?[0-9][0-9 () .-]*$/.test(v) && v.replace(/\D/g, "").length >= 7 && v.replace(/\D/g, "").length <= 15) return true;
     return /^@[A-Za-z0-9_]{5,32}$/.test(v) || /^(https?:\/\/)?t\.me\/[A-Za-z0-9_]{5,32}\/?$/i.test(v);
   }
   function validDate(s) {
@@ -159,10 +160,10 @@
     if (typeof title !== "string" || !title.trim()) errors.title = "Укажите название или клиента.";
     else if (textErr("title", LIMITS.title)) errors.title = textErr("title", LIMITS.title);
     const contact = val("contact");
-    if (typeof contact !== "string" || !contact.trim()) errors.contact = "Укажите контакт: Telegram или email.";
+    if (typeof contact !== "string" || !contact.trim()) errors.contact = "Укажите контакт: Telegram, телефон или email.";
     else if (contact.trim().length > LIMITS.contact) errors.contact = "Контакт не длиннее " + LIMITS.contact + " символов.";
     else if (CTRL_RE.test(contact)) errors.contact = "Контакт содержит недопустимые управляющие символы.";
-    else if (!validContact(contact)) errors.contact = "Контакт не распознан: нужен Telegram (@имя или t.me/имя) или email.";
+    else if (!validContact(contact)) errors.contact = "Контакт не распознан: нужен Telegram (@имя или t.me/имя), телефон или email.";
     if (!ids(SERVICES).includes(l.service)) errors.service = "Выберите услугу.";
     if (!ids(SOURCES).includes(l.source)) errors.source = "Выберите источник.";
     if (!ids(URGENCIES).includes(l.urgency)) errors.urgency = "Выберите срочность.";
@@ -380,6 +381,7 @@
     [".rpl-tag.overdue", "background:#7a1f1f;border-color:#ff6b6b;color:#ffecec;font-weight:600"],
     [".rpl-tag.demo", "border-style:dashed;color:#ffad29;border-color:#ffad29"],
     [".rpl-meta", "font-size:13px;color:#b4b0a6;margin:4px 0;overflow-wrap:anywhere"],
+    [".rpl-brief", "border:1px solid #555;padding:12px;border-radius:8px;white-space:pre-wrap"],
     [".rpl-meta b", "color:#f1efe9;font-weight:600"],
     [".rpl-card details", "margin:6px 0;font-size:13px;color:#b4b0a6"],
     [".rpl-card summary", "cursor:pointer;min-height:44px;display:flex;align-items:center"],
@@ -576,17 +578,12 @@
       ]),
       el("div", { class: "rpl-meta" }, [el("b", { text: "Бюджет: " }), money(lead.budget)]),
       el("div", { class: "rpl-meta" }, [el("b", { text: "Срочность: " }), labelOf(URGENCIES, lead.urgency)]),
-      el("div", { class: "rpl-meta" }, [el("b", { text: "Источник: " }), labelOf(SOURCES, lead.source), " · ", el("b", { text: "Услуга: " }), labelOf(SERVICES, lead.service)]),
+      el("div", { class: "rpl-meta" }, [el("b", { text: "Источник: " }), labelOf(SOURCES, lead.source)]),
+      el("div", { class: "rpl-meta" }, [el("b", { text: "Услуга: " }), labelOf(SERVICES, lead.service)]),
       el("div", { class: "rpl-meta" }, [el("b", { text: "Контакт: " }), lead.contact]),
       el("div", { class: "rpl-meta" }, [el("b", { text: "Следующий шаг: " }), lead.nextStep ? lead.nextStep + (lead.nextStepDate ? " — " + dateRu(lead.nextStepDate) : "") : "не задан"]),
       lead.stage === "lost" ? el("div", { class: "rpl-meta" }, [el("b", { text: "Причина: " }), lead.lostReason]) : null,
-      lead.comment ? el("div", { class: "rpl-meta", text: lead.comment }) : null,
-      el("details", { open: open }, [
-        el("summary", { text: sc.unavailable ? "Оценка недоступна" : "Почему такая оценка: " + tag }),
-        el("p", { class: "rpl-meta", text: sc.unavailable ? (UNAVAILABLE_TEXT[sc.reason] || UNAVAILABLE_TEXT.missing) : scoreText + "." }),
-        lead.budget === 0 ? el("p", { class: "rpl-meta", text: "Бюджет указан как 0 ₽: при оценке он учитывается как «не указан» (баллы за бюджет не начисляются)." }) : null,
-        sc.unavailable ? null : el("ul", null, sc.reasons.map((r) => el("li", { text: r })))
-      ]),
+      lead.comment ? el("div", { class: "rpl-meta rpl-brief", text: lead.comment }) : null,
       el("label", { for: dom + "-st", text: "Стадия" }),
       stageSel,
       el("div", { class: "rpl-row" }, [
@@ -719,7 +716,7 @@
         el("h2", { id: "rpl-form-title", text: isNew ? "Новый лид" : "Редактирование лида" }),
         formErr ? el("div", { class: "rpl-err", role: "alert", id: "rpl-form-err", text: formErr }) : null,
         field("Название / клиент", "rpl-f-title", input("rpl-f-title", "text", base.title, { required: true, maxlength: String(LIMITS.title) }), e.title),
-        field("Контакт (@telegram, t.me/имя или email)", "rpl-f-contact", input("rpl-f-contact", "text", base.contact, { required: true, maxlength: String(LIMITS.contact), autocomplete: "off" }), e.contact),
+        field("Контакт (телефон, Telegram или email)", "rpl-f-contact", input("rpl-f-contact", "text", base.contact, { required: true, maxlength: String(LIMITS.contact), autocomplete: "off" }), e.contact),
         contactAck ? null : el("div", { class: "rpl-field" }, [
           el("label", { class: "rpl-ack", for: "rpl-f-ack" }, [
             el("input", { type: "checkbox", id: "rpl-f-ack", name: "rpl-f-ack", checked: ackChecked, "aria-invalid": e.ack ? "true" : null, "aria-describedby": e.ack ? "rpl-err-rpl-f-ack" : null }),
@@ -733,7 +730,7 @@
         field("Срочность", "rpl-f-urgency", select("rpl-f-urgency", URGENCIES, base.urgency), e.urgency),
         field("Следующий шаг", "rpl-f-next", input("rpl-f-next", "text", base.nextStep, { maxlength: String(LIMITS.nextStep) }), e.nextStep),
         field("Дата следующего шага", "rpl-f-date", input("rpl-f-date", "date", base.nextStepDate), e.nextStepDate),
-        field("Стадия", "rpl-f-stage", stageSel, e.stage),
+        el("div", { hidden: isNew }, [field("Стадия", "rpl-f-stage", stageSel, e.stage)]),
         lostWrap,
         field("Комментарий", "rpl-f-comment", el("textarea", { id: "rpl-f-comment", name: "rpl-f-comment", maxlength: String(LIMITS.comment), text: base.comment }), e.comment),
         el("div", { class: "rpl-actions" }, [

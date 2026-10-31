@@ -14,3 +14,10 @@
 
 /* Compact icon counters retain their existing drill-down actions. */
 #crm-dashboard .dash-widgets{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:16px;max-width:560px}#crm-dashboard .dash-widget{display:grid!important;grid-template-columns:24px auto;gap:4px 8px!important;align-items:center;padding:10px!important;min-height:68px;text-align:left}#crm-dashboard .dash-widget strong{grid-column:2;grid-row:1;font-size:24px;line-height:1}#crm-dashboard .dash-widget>span{grid-column:1/-1;font-size:11px;line-height:1.3;white-space:nowrap} .dash-metric-icon{width:22px;height:22px;color:var(--rp-accent)}
+
+/* Review: compact overview and filters opened on demand. */
+#crm-dashboard .dash-overview{grid-template-columns:repeat(4,minmax(0,1fr));max-width:760px}
+#crm-dashboard .dash-overview .dash-widget{display:flex!important;flex-direction:column;align-items:flex-start;gap:6px!important;min-height:74px}
+#crm-dashboard .dash-overview .dash-widget>span{white-space:normal}
+.dash-filter-panel{margin:12px 0 16px}.dash-filter-panel>summary{cursor:pointer;padding:10px 14px;border:1px solid #495052;border-radius:10px;width:fit-content}.dash-filter-panel[open] .dash-filters{margin-top:12px}
+@media(max-width:600px){#crm-dashboard .dash-overview{grid-template-columns:repeat(2,minmax(0,1fr))}#crm-dashboard .dash-overview .dash-widget{min-height:72px}.dash-filter-panel .dash-filters{grid-template-columns:1fr}}
