@@ -181,6 +181,7 @@ class AccessMixin:
       elif route=='/api/owner/invite':result=auth.create_invite(user,p.get('role'),p.get('permissions',[]))
       elif route=='/api/owner/account/reset-password':result=auth.reset_temp_password(user,p['id'])
       else:return self.send({'error':'Not found'},404)
+     for oid in (result.pop('reroute',[]) if isinstance(result,dict) else []):core.route(oid)  # slots freed by archiving
      return self.send(result)
     except PermissionError as e:return self.send({'error':str(e)},403)
     except (ValueError,KeyError,TypeError) as e:return self.send({'error':str(e) or 'Запрос отклонён'},400)

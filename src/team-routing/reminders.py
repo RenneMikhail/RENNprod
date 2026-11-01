@@ -13,6 +13,7 @@ TIME_RE = re.compile(r'^([01]\d|2[0-3]):[0-5]\d$')
 def schema(c):
     c.execute('CREATE TABLE IF NOT EXISTS reminder_setting(account_id TEXT PRIMARY KEY,hhmm TEXT NOT NULL)')
     c.execute('CREATE TABLE IF NOT EXISTS reminder_log(account_id TEXT NOT NULL,day TEXT NOT NULL,PRIMARY KEY(account_id,day))')
+    c.execute('CREATE TABLE IF NOT EXISTS reminder_failure(account_id TEXT NOT NULL,day TEXT NOT NULL,n INTEGER NOT NULL,PRIMARY KEY(account_id,day))')
     documents.schema_orders(c)
     c.execute('CREATE TABLE IF NOT EXISTS intake(id TEXT PRIMARY KEY,kind TEXT,payload TEXT,created_at TEXT)')
 
@@ -72,19 +73,32 @@ def text_for(d):
     lines.append('Время напоминания меняется командой /remind ЧЧ:ММ.')
     return '\n'.join(lines)
 
+MAX_FAILURES_PER_DAY = 3
+
 def flush_with(connect, sender, now=None):
-    """Production path: read due reminders in a short transaction, send without holding the database, then mark sent."""
+    """Production path: read due reminders in a short transaction, send without holding the database, then mark sent.
+    A failing send is retried at most MAX_FAILURES_PER_DAY times a day; a failed log write never stops the others."""
     with connect() as c:
+        schema(c)
         items = due(c, now)
     sent = 0
     for item in items:
+        with connect() as c:
+            failures = c.execute('SELECT n FROM reminder_failure WHERE account_id=? AND day=?', (item['account_id'], item['day'])).fetchone()
+        if failures and failures[0] >= MAX_FAILURES_PER_DAY:
+            continue
         try:
             sender(item['telegram_id'], text_for(item['digest']))
         except Exception:
+            with connect() as c:
+                c.execute('INSERT INTO reminder_failure VALUES(?,?,1) ON CONFLICT(account_id,day) DO UPDATE SET n=n+1', (item['account_id'], item['day']))
             continue
-        with connect() as c:
-            c.execute('INSERT OR IGNORE INTO reminder_log VALUES(?,?)', (item['account_id'], item['day']))
-        sent += 1
+        try:
+            with connect() as c:
+                c.execute('INSERT OR IGNORE INTO reminder_log VALUES(?,?)', (item['account_id'], item['day']))
+            sent += 1
+        except Exception:
+            pass
     return sent
 
 def flush(c, sender, now=None):
