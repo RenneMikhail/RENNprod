@@ -177,8 +177,8 @@ class OwnerAdminTests(unittest.TestCase):
   self.assertEqual(base64.b64decode(got['content_base64']),b'%PDF-1.4 test contract')
   # General documents belong to the owner: a manager neither adds nor sees them.
   general={'owner_kind':'general','owner_id':'general','kind':'act','title':'Общий акт','filename':'act.pdf','content_base64':payload}
-  self.assertEqual(self.request('/api/documents/upload',general,cookie=manager)[0],400)
-  self.assertEqual(self.request('/api/documents/list',{},cookie=employee)[0],400)
+  self.assertEqual(self.request('/api/documents/upload',general,cookie=manager)[0],403)
+  self.assertEqual(self.request('/api/documents/list',{},cookie=employee)[0],403)
   self.assertEqual(self.request('/documents',cookie=employee)[0],303)
   self.assertEqual(self.request('/documents',cookie=manager)[0],200)
 
@@ -199,6 +199,6 @@ class OwnerAdminTests(unittest.TestCase):
   self.assertEqual(json.loads(self.request('/api/documents/list',{},cookie=second)[1])['documents'],[])
   self.assertEqual(self.request('/api/orders/transfer',{'order':order,'to':new_id},cookie=old)[0],200)
   self.assertEqual(len(json.loads(self.request('/api/documents/list',{},cookie=second)[1])['documents']),1)
-  self.assertEqual(self.request('/api/orders/transfer',{'order':order,'to':old_id},cookie=old)[0],400)
+  self.assertEqual(self.request('/api/orders/transfer',{'order':order,'to':old_id},cookie=old)[0],403)  # no longer the manager
 
 if __name__=="__main__":unittest.main()

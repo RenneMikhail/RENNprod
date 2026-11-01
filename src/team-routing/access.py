@@ -160,7 +160,8 @@ class AccessMixin:
        with auth.connect() as acc:result={'managers':[{'id':r['id'],'username':r['username']} for r in acc.execute("SELECT id,username FROM account WHERE role='manager' AND active=1").fetchall()]}
       else:return self.send({'error':'Not found'},404)
      return self.send(result)
-    except (ValueError,KeyError,TypeError,PermissionError) as e:return self.send({'error':str(e) or 'Запрос отклонён'},400)
+    except PermissionError as e:return self.send({'error':str(e)},403)
+    except (ValueError,KeyError,TypeError) as e:return self.send({'error':str(e) or 'Запрос отклонён'},400)
    if route.startswith('/api/owner/'):
     if route!='/api/owner/role' and (not user or user['role']!='owner'):return self.send({'error':'Только владелец'},403)
     if route=='/api/owner/role' and (not user or user['role'] not in ('owner','manager')):return self.send({'error':'Нет доступа'},403)
@@ -181,7 +182,8 @@ class AccessMixin:
       elif route=='/api/owner/account/reset-password':result=auth.reset_temp_password(user,p['id'])
       else:return self.send({'error':'Not found'},404)
      return self.send(result)
-    except (ValueError,KeyError,TypeError,PermissionError) as e:return self.send({'error':str(e) or 'Запрос отклонён'},400)
+    except PermissionError as e:return self.send({'error':str(e)},403)
+    except (ValueError,KeyError,TypeError) as e:return self.send({'error':str(e) or 'Запрос отклонён'},400)
    permissions={'/api/intake/project':'tasks:approve','/api/intake/status':'tasks:approve','/api/verify':'employees:approve','/api/staff/add':'employees:add','/api/route':'tasks:approve','/api/select':'tasks:approve','/api/auto':'tasks:approve','/api/tick':'tasks:approve','/api/ack':'dashboard:read','/api/channel':'dashboard:read'}
    if route in permissions and not auth.allowed(user,permissions[route]):return self.send({'error':'Недостаточно прав'},403)
    if route=='/api/intake/project':

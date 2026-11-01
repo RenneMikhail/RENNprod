@@ -14,6 +14,7 @@ def schema(c):
     c.execute('CREATE TABLE IF NOT EXISTS reminder_setting(account_id TEXT PRIMARY KEY,hhmm TEXT NOT NULL)')
     c.execute('CREATE TABLE IF NOT EXISTS reminder_log(account_id TEXT NOT NULL,day TEXT NOT NULL,PRIMARY KEY(account_id,day))')
     documents.schema_orders(c)
+    c.execute('CREATE TABLE IF NOT EXISTS intake(id TEXT PRIMARY KEY,kind TEXT,payload TEXT,created_at TEXT)')
 
 def set_time(c, actor, hhmm):
     if not actor or actor.get('role') not in ('owner', 'manager'):raise PermissionError('Нет доступа')
@@ -70,6 +71,21 @@ def text_for(d):
         lines += ['• %s — заявок: %d' % (r['contact'], r['count']) for r in d['repeats'][:15]]
     lines.append('Время напоминания меняется командой /remind ЧЧ:ММ.')
     return '\n'.join(lines)
+
+def flush_with(connect, sender, now=None):
+    """Production path: read due reminders in a short transaction, send without holding the database, then mark sent."""
+    with connect() as c:
+        items = due(c, now)
+    sent = 0
+    for item in items:
+        try:
+            sender(item['telegram_id'], text_for(item['digest']))
+        except Exception:
+            continue
+        with connect() as c:
+            c.execute('INSERT OR IGNORE INTO reminder_log VALUES(?,?)', (item['account_id'], item['day']))
+        sent += 1
+    return sent
 
 def flush(c, sender, now=None):
     """Sends due reminders through sender(telegram_id, text). Marks a day as sent only after the send succeeded."""

@@ -30,7 +30,7 @@ def archive_staff(c, actor, sid):
     old = c.execute('SELECT telegram_id FROM specialist WHERE id=?', (sid,)).fetchone()[0]
     if old is not None: profile['archived_telegram_id'] = old
     c.execute('UPDATE specialist SET profile=?, telegram_id=NULL WHERE id=?', (json.dumps(profile, ensure_ascii=False), sid))
-    c.execute("UPDATE offer SET status='withdrawn' WHERE specialist_id=? AND status='pending'", (sid,))
+    c.execute("UPDATE offer SET status='withdrawn' WHERE specialist_id=? AND status IN ('pending','responded')", (sid,))
     c.execute('UPDATE availability SET active=0 WHERE specialist_id=?', (sid,))
     return {'status': 'archived', 'id': sid}
 

@@ -157,6 +157,7 @@ def route(oid,path=None):
                 terms={'version':o['version'],'start':o['start'],'end':o['end'],'city':o['city'],'role':slot['role'],'fee':p['rate'],'fee_unit':RATE_UNITS.get(p.get('rate_unit'),'не указано'),'currency':p['currency'],'deliverable':json.loads(o['brief']).get('result','')}
                 c.execute('INSERT INTO offer VALUES(?,?,?,?,?,?,\'pending\')',(ident,slot['id'],s['id'],o['version'],json.dumps(terms),deadline));enqueue(c,oid,s['id'],'offer:'+ident,deadline)
                 offer_counts[s['id']]=offer_counts.get(s['id'],0)+1
+                c.execute("UPDATE orders SET status='open' WHERE id=? AND status='no_candidates'",(oid,))
                 if not complex_order:break
         # F. A slot with nobody left to offer is visible to the manager as a status, not a silent wait.
         for slot in slots:
@@ -237,6 +238,7 @@ def tick(path=None):
     with connect(path) as c:
         c.execute('BEGIN IMMEDIATE')
         ids=[r[0] for r in c.execute("SELECT DISTINCT s.order_id FROM offer f JOIN role_slot s ON s.id=f.slot_id WHERE f.status='pending' AND f.deadline<=?",(now(),))]
+        ids+=[r[0] for r in c.execute("SELECT id FROM orders WHERE status='no_candidates'")]  # a new candidate may have appeared
         c.execute("UPDATE offer SET status='expired' WHERE status='pending' AND deadline<=?",(now(),))
         c.execute("UPDATE notification SET status='expired' WHERE status='queued' AND channel='telegram' AND deadline<=?",(now(),));c.commit()
     for oid in ids:route(oid,path)

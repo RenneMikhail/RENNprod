@@ -130,7 +130,7 @@ def notification_clock():
         try:
             core.tick();intake_delivery.flush();staff_delivery.flush();question_delivery.flush()
             import reminders, bot as telegram_bot
-            with core.connect() as c:reminders.flush(c,lambda tg,text:telegram_bot.call('sendMessage',{'chat_id':tg,'text':text}))
+            reminders.flush_with(core.connect,lambda tg,text:telegram_bot.call('sendMessage',{'chat_id':tg,'text':text}))
         except Exception:pass  # No personal details or transport secrets in logs.
         time.sleep(30)
 def main():
