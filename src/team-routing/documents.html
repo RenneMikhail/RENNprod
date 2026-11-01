@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RENN Prod · Документы</title>
+<style>
+:root{--bg:#111315;--surface:#1b1e21;--text:#f4f1e9;--accent:#ffad29;--muted:#a9a59a;--line:#41464a;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+header{padding:18px 16px;border-bottom:1px solid var(--line)} header b{color:var(--accent)}
+main{padding:14px 16px 60px;max-width:900px;margin:auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;margin:10px 0}
+.card h3{margin:0 0 6px;font-size:16px} .muted{color:var(--muted);font-size:13px}
+input,select{width:100%;min-height:42px;padding:8px;margin:4px 0 10px;background:#101510;color:var(--text);border:1px solid #6e685a;border-radius:4px;font:inherit;box-sizing:border-box}
+label{display:block;font-size:13px;color:var(--muted)}
+button{min-height:44px;padding:10px 14px;background:var(--accent);color:#17170f;border:0;border-radius:6px;font:inherit;font-weight:700;cursor:pointer;width:100%}
+button.act{width:auto;min-height:40px;background:transparent;color:var(--accent);border:1px solid var(--accent);margin-top:6px}
+#status{min-height:22px;color:var(--accent);margin:8px 0}
+</style>
+</head>
+<body>
+<header><b>RENN Prod</b> · документы</header>
+<main>
+<p id="status" role="status"></p>
+<form id="upload" class="card">
+  <h3>Загрузить документ</h3>
+  <label>Тип
+    <select name="kind">
+      <option value="contract">Договор</option><option value="appendix">Приложение</option><option value="act">Акт</option>
+      <option value="invoice">Счёт-фактура / счёт</option><option value="kpp">КПП (регистрация)</option>
+      <option value="call_sheet">Вызывной лист</option><option value="other">Другое</option>
+    </select>
+  </label>
+  <label>Название *<input name="title" required maxlength="160"></label>
+  <label>Привязка: ID заказа или сотрудника (необязательно)<input name="owner_id"></label>
+  <label>Файл * (до 10 МБ)<input name="file" type="file" required></label>
+  <button type="submit">Загрузить</button>
+</form>
+<form id="transfer" class="card">
+  <h3>Передать проект другому менеджеру</h3>
+  <p class="muted">Вместе с проектом передаются все его документы. Передать может владелец или текущий менеджер проекта.</p>
+  <label>ID проекта<input name="order" required></label>
+  <label>Менеджер<select name="to" id="managers"></select></label>
+  <button type="submit">Передать</button>
+</form>
+<h2>Документы</h2>
+<label>Фильтр по ID заказа или сотрудника<input id="filter" placeholder="оставьте пусто, чтобы видеть все"></label>
+<button id="refresh" type="button" class="act">Обновить список</button>
+<div id="list"></div>
+</main>
+<script>
+const session='__SESSION__';
+const $=s=>document.querySelector(s);
+const KIND={contract:'Договор',appendix:'Приложение',act:'Акт',invoice:'Счёт',kpp:'КПП',call_sheet:'Вызывной лист',other:'Другое'};
+function status(t){$('#status').textContent=t;}
+async function call(path,body){
+  const r=await fetch(path,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-Local-Session':session},body:JSON.stringify(body??{})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.error||('Ошибка '+r.status));
+  return data;
+}
+function toBase64(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(file);});}
+async function loadList(){
+  const owner=$('#filter').value.trim();
+  const {documents}=await call('/api/documents/list',owner?{owner_id:owner}:{});
+  const box=$('#list');box.replaceChildren();
+  for(const d of documents){
+    const c=document.createElement('div');c.className='card';
+    const h=document.createElement('h3');h.textContent=d.title;c.appendChild(h);
+    const m=document.createElement('div');m.className='muted';
+    m.textContent=(KIND[d.kind]||d.kind)+' · '+d.filename+' · '+Math.round(d.size/1024)+' КБ · '+d.created_at.slice(0,16)+(d.owner_id?' · привязка: '+d.owner_id:'');
+    c.appendChild(m);
+    const b=document.createElement('button');b.type='button';b.className='act';b.textContent='Скачать';
+    b.addEventListener('click',async()=>{try{const f=await call('/api/documents/download',{id:d.id});
+      const bin=Uint8Array.from(atob(f.content_base64),ch=>ch.charCodeAt(0));
+      const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bin]));a.download=f.filename;a.click();}
+      catch(e){status(e.message);}});
+    c.appendChild(b);box.appendChild(c);
+  }
+  if(!documents.length)box.textContent='Документов пока нет.';
+}
+$('#upload').addEventListener('submit',async e=>{e.preventDefault();
+  try{
+    const f=new FormData(e.target);const file=f.get('file');
+    const body={owner_kind:f.get('owner_id')?'order':'general',owner_id:String(f.get('owner_id')||'general').trim(),kind:String(f.get('kind')),title:String(f.get('title')).trim(),filename:file.name,content_base64:await toBase64(file)};
+    await call('/api/documents/upload',body);status('Документ сохранён.');e.target.reset();loadList();
+  }catch(err){status(err.message);}
+});
+$('#refresh').addEventListener('click',()=>loadList());
+$('#transfer').addEventListener('submit',async e=>{e.preventDefault();
+  try{const f=new FormData(e.target);await call('/api/orders/transfer',{order:String(f.get('order')).trim(),to:String(f.get('to'))});status('Проект передан вместе с документами.');loadList();}
+  catch(err){status(err.message);}
+});
+call('/api/managers/list',{}).then(({managers})=>{const sel=$('#managers');sel.replaceChildren();for(const m of managers){const o=document.createElement('option');o.value=m.id;o.textContent=m.username;sel.appendChild(o);}}).catch(()=>{});
+loadList().catch(e=>status(e.message));
+</script>
+</body>
+</html>

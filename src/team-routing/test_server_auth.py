@@ -47,7 +47,7 @@ class HTTPAccessTests(unittest.TestCase):
   ident=json.loads(self.request('/api/intake',{'kind':'client','city':'TEST City','idea':'TEST brief','contact':'PRIVATE'})[1])['id']
   body={'id':ident,'title':'TEST project','start':'2026-12-01T10:00','end':'2026-12-01T12:00','timezone':'Europe/Moscow'}
   self.assertEqual(self.request('/api/intake/project',body)[0],401)
-  for name in ('manager','employee'):
+  for name in ('employee',):  # managers hold tasks:approve by design
    self.assertEqual(self.request('/api/intake/project',body,cookie=self.login(name))[0],403)
   owner=self.login('owner')
   self.assertEqual(self.request('/api/intake/project',body,cookie=owner,csrf=False)[0],403)
@@ -115,7 +115,7 @@ class HTTPAccessTests(unittest.TestCase):
   ident=json.loads(self.request('/api/intake',{'kind':'client','contact':'TEST'})[1])['id']
   payload={'id':ident,'status':'working'}
   self.assertEqual(self.request('/api/intake/status',payload,cookie=self.login('employee'))[0],403)
-  self.assertEqual(self.request('/api/intake/status',payload,cookie=self.login('manager'))[0],403)
+  self.assertEqual(self.request('/api/intake/status',payload,cookie=self.login('employee'))[0],403)  # managers hold tasks:approve by design
   owner=self.login('owner')
   self.assertEqual(self.request('/api/intake/status',payload,cookie=owner)[0],200)
   self.assertEqual(json.loads(self.request('/api/intakes',cookie=owner)[1])[0]['status'],'working')

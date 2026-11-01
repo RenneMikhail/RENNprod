@@ -1,15 +1,16 @@
 """Ren Prod local routing domain. No external dependencies."""
-import sqlite3, json, uuid, math
+import os, sqlite3, json, uuid, math
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent
-DB = ROOT / 'data' / 'routing.sqlite3'
+DB = Path(os.environ['RENN_DATA_DIR']) / 'routing.sqlite3' if os.environ.get('RENN_DATA_DIR') else ROOT / 'data' / 'routing.sqlite3'
 ROLE_LABELS = {'camera': 'Оператор', 'editor': 'Монтажёр', 'sound': 'Звукорежиссёр', 'manager': 'Менеджер', 'generative': 'AI-генератор', 'event': 'Организатор', 'cg': 'CG-специалист', 'fpv': 'FPV-дронщик', 'designer': 'Дизайнер', 'gaffer': 'Гаффер', 'lighting': 'Осветитель', 'driver': 'Водитель', 'costume': 'Костюмер', 'makeup': 'Гримёр'}
 ROLES = list(ROLE_LABELS)
 SKILLS = ['interview','multicam','color','sound','editing','generation','coordination','cg','fpv']
 TASKS = ['shoot','edit','generate','event']
+RATE_UNITS = {'shift8':'За смену (8 ч)','shift12':'За смену (12 ч)','hour':'За час','task':'За задачу'}
 def now(): return datetime.now(timezone.utc).isoformat()
 def uid(): return str(uuid.uuid4())
 class Connection(sqlite3.Connection):
@@ -55,12 +56,13 @@ def normalize_interval(start,end,tz):
     return a,b
 
 def validate(p):
-    required=['name','city','roles','skills','tasks','mobility','equipment','rate','currency','languages','email','timezone','portfolio','portfolio_role']
+    required=['name','city','roles','skills','tasks','mobility','equipment','rate','rate_unit','currency','languages','email','timezone','portfolio','portfolio_role']
     missing=[x for x in required if not p.get(x)]
     if missing:raise ValueError('Заполните: '+', '.join(missing))
     if not set(p['roles'])<=set(ROLES) or not set(p['skills'])<=set(SKILLS) or not set(p['tasks'])<=set(TASKS):raise ValueError('Выберите варианты из справочника')
     if p['mobility'] not in ['city','travel','remote']:raise ValueError('Неверный формат работы')
     if p['currency'] not in ['RUB','EUR','USD']:raise ValueError('Неверная валюта')
+    if p['rate_unit'] not in RATE_UNITS:raise ValueError('Неверная единица оплаты')
     if p['equipment'] not in ['none','camera','camera_audio','studio']:raise ValueError('Неверная техника')
     if isinstance(p['rate'],bool) or not math.isfinite(float(p['rate'])) or float(p['rate'])<=0:raise ValueError('Ставка должна быть положительной')
     if '@' not in p['email']:raise ValueError('Укажите email')
@@ -120,6 +122,10 @@ def candidates(c,slot):
 
 def enqueue(c,oid,sid,event,deadline):
     c.execute('INSERT OR IGNORE INTO notification VALUES(?,?,?,?,?,\'queued\',NULL,?)',(uid(),oid,sid,event,'telegram',deadline))
+OFFER_DAYS=14  # response window for a project offer; expired offers are re-routed by tick()
+def offer_deadline():
+    return (datetime.now(timezone.utc)+timedelta(days=OFFER_DAYS)).isoformat()
+
 def deadline_work(hours=4,tz='Europe/Moscow',base=None):
     d=base or datetime.now(timezone.utc);zone=ZoneInfo(tz);minutes=int(hours*60)
     while minutes:
@@ -143,12 +149,20 @@ def route(oid,path=None):
             if slot['status']=='filled':continue
             pending=c.execute("SELECT 1 FROM offer WHERE slot_id=? AND status IN ('pending','responded')",(slot['id'],)).fetchone()
             if pending and not complex_order:continue
-            for s in candidates(c,slot):
+            # Fairness: whoever received the fewest offers so far goes first (ties keep id order).
+            offer_counts={r[0]:r[1] for r in c.execute('SELECT specialist_id,COUNT(*) FROM offer GROUP BY specialist_id')}
+            for s in sorted(candidates(c,slot),key=lambda x:offer_counts.get(x['id'],0)):
                 if c.execute('SELECT 1 FROM offer WHERE slot_id=? AND specialist_id=? AND version=?',(slot['id'],s['id'],o['version'])).fetchone():continue
-                p=json.loads(s['profile']);ident=uid();deadline=deadline_work(tz=p['timezone'])
-                terms={'version':o['version'],'start':o['start'],'end':o['end'],'city':o['city'],'role':slot['role'],'fee':p['rate'],'currency':p['currency'],'deliverable':json.loads(o['brief'])['result']}
+                p=json.loads(s['profile']);ident=uid();deadline=offer_deadline()
+                terms={'version':o['version'],'start':o['start'],'end':o['end'],'city':o['city'],'role':slot['role'],'fee':p['rate'],'fee_unit':RATE_UNITS.get(p.get('rate_unit'),'не указано'),'currency':p['currency'],'deliverable':json.loads(o['brief']).get('result','')}
                 c.execute('INSERT INTO offer VALUES(?,?,?,?,?,?,\'pending\')',(ident,slot['id'],s['id'],o['version'],json.dumps(terms),deadline));enqueue(c,oid,s['id'],'offer:'+ident,deadline)
+                offer_counts[s['id']]=offer_counts.get(s['id'],0)+1
                 if not complex_order:break
+        # F. A slot with nobody left to offer is visible to the manager as a status, not a silent wait.
+        for slot in slots:
+            if slot['status']=='filled':continue
+            if not c.execute("SELECT 1 FROM offer WHERE slot_id=? AND status IN ('pending','responded')",(slot['id'],)).fetchone() and not c.execute('SELECT 1 FROM assignment WHERE slot_id=?',(slot['id'],)).fetchone():
+                c.execute("UPDATE orders SET status='no_candidates' WHERE id=? AND status='open'",(oid,))
         c.commit()
 
 def transact(key,fn,path=None):
@@ -186,6 +200,9 @@ def respond_in_connection(c,offer_id,sid,decision,version):
     o=c.execute('SELECT o.* FROM orders o JOIN role_slot s ON o.id=s.order_id WHERE s.id=?',(x['slot_id'],)).fetchone()
     if o['version']!=x['version']:raise ValueError('Условия изменились')
     if decision=='decline':c.execute("UPDATE offer SET status='declined' WHERE id=?",(offer_id,));return {'status':'declined','order_id':o['id']}
+    # Accepting is a commitment: refuse overlapping projects already accepted but not yet selected.
+    if c.execute("SELECT 1 FROM offer f JOIN role_slot s ON s.id=f.slot_id JOIN orders oo ON oo.id=s.order_id WHERE f.specialist_id=? AND f.status IN ('responded','assigned') AND f.id<>? AND oo.start<? AND oo.end>?",(sid,offer_id,o['end'],o['start'])).fetchone():
+        raise ValueError('Вы уже откликнулись на другой проект в это время')
     count=c.execute('SELECT count(*) FROM role_slot WHERE order_id=?',(o['id'],)).fetchone()[0]
     if count==1 and o['auto_assign']:return assign(c,x)
     c.execute("UPDATE offer SET status='responded' WHERE id=?",(offer_id,));return {'status':'responded','order_id':o['id']}
@@ -237,7 +254,7 @@ def seed(path=None):
     with connect(path) as c:
         if c.execute('SELECT 1 FROM orders').fetchone():return
     for i,(name,roles,skills) in enumerate([('Демо · Анна',['camera'],['interview','multicam']),('Демо · Борис',['camera'],['interview']),('Демо · Вера',['editor'],['editing','color']),('Демо · Глеб',['manager'],['coordination'])]):
-        p={'name':name,'city':'Москва','roles':roles,'skills':skills,'tasks':TASKS,'mobility':'city','equipment':'camera','rate':12000,'currency':'RUB','languages':['ru'],'email':f'demo{i}@example.invalid','telegram':'','phone':'','timezone':'Europe/Moscow','portfolio':'https://example.invalid/portfolio','portfolio_role':roles[0]}
+        p={'name':name,'city':'Москва','roles':roles,'skills':skills,'tasks':TASKS,'mobility':'city','equipment':'camera','rate':12000,'rate_unit':'shift12','currency':'RUB','languages':['ru'],'email':f'demo{i}@example.invalid','telegram':'','phone':'','timezone':'Europe/Moscow','portfolio':'https://example.invalid/portfolio','portfolio_role':roles[0]}
         sid=register(p,path=path)
         with connect(path) as c:c.execute('UPDATE specialist SET verified=1 WHERE id=?',(sid,))
     with connect(path) as c:

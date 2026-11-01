@@ -81,6 +81,7 @@ class Handler(AccessMixin,BaseHTTPRequestHandler):
                 if u.path=='/api/state':
                     data={t:[dict(r) for r in c.execute('SELECT * FROM '+t)] for t in ['specialist','orders','role_slot','offer','assignment','manager_acceptance','availability','notification','intake']}
                     for s in data['specialist']:s['profile']=json.loads(s['profile'])
+                    data['specialist']=[s for s in data['specialist'] if not s['profile'].get('archived')]
                     # Employee questions are served only by /api/questions, which checks order assignment.
                     return self.send(privacy.state(data,self.get_user()))
                 if u.path=='/api/workspace':return self.send(privacy.workspace(core.workspace_view(q['order'][0],q['actor'][0]),self.get_user()))
@@ -126,7 +127,10 @@ class Handler(AccessMixin,BaseHTTPRequestHandler):
         except Exception:self.send({'error':'Internal error; no private data logged'},500)
 def notification_clock():
     while True:
-        try:core.tick();intake_delivery.flush();staff_delivery.flush();question_delivery.flush()
+        try:
+            core.tick();intake_delivery.flush();staff_delivery.flush();question_delivery.flush()
+            import reminders, bot as telegram_bot
+            with core.connect() as c:reminders.flush(c,lambda tg,text:telegram_bot.call('sendMessage',{'chat_id':tg,'text':text}))
         except Exception:pass  # No personal details or transport secrets in logs.
         time.sleep(30)
 def main():

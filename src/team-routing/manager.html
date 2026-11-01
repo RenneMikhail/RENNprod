@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RENN Prod · Менеджер</title>
+<style>
+:root{--bg:#111315;--surface:#1b1e21;--text:#f4f1e9;--accent:#ffad29;--muted:#a9a59a;--line:#41464a;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+header{padding:18px 16px;border-bottom:1px solid var(--line)} header b{color:var(--accent)}
+main{padding:14px 16px 60px;max-width:900px;margin:auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;margin:10px 0}
+.card h3{margin:0 0 6px;font-size:16px} .muted{color:var(--muted);font-size:13px}
+input{width:100%;min-height:42px;padding:8px;margin:4px 0 10px;background:#101510;color:var(--text);border:1px solid #6e685a;border-radius:4px;font:inherit;box-sizing:border-box}
+label{display:block;font-size:13px;color:var(--muted)}
+button{min-height:44px;padding:10px 14px;background:var(--accent);color:#17170f;border:0;border-radius:6px;font:inherit;font-weight:700;cursor:pointer;width:100%}
+#status{min-height:22px;color:var(--accent);margin:8px 0}
+</style>
+</head>
+<body>
+<header><b>RENN Prod</b> · менеджер</header>
+<main>
+<p id="status" role="status"></p>
+<form id="time" class="card">
+  <h3>Время напоминания</h3>
+  <p class="muted">Каждый день, по Москве. По умолчанию 10:00.</p>
+  <label>Время (ЧЧ:ММ)<input name="time" id="time-input" pattern="([01]\d|2[0-3]):[0-5]\d" required></label>
+  <button type="submit">Сохранить время</button>
+</form>
+<h2>Проекты без роли</h2>
+<div id="no-role"></div>
+<h2>Повторные заявки от одного контакта</h2>
+<p class="muted">Один человек отправил несколько заявок. Объедините их перед тем, как брать в работу.</p>
+<div id="repeats"></div>
+</main>
+<script>
+const session='__SESSION__';
+const $=s=>document.querySelector(s);
+function status(t){$('#status').textContent=t;}
+async function call(path,body){
+  const r=await fetch(path,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-Local-Session':session},body:JSON.stringify(body??{})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.error||('Ошибка '+r.status));
+  return data;
+}
+function card(title,lines){
+  const d=document.createElement('div');d.className='card';
+  const h=document.createElement('h3');h.textContent=title;d.appendChild(h);
+  for(const l of lines){const p=document.createElement('div');p.className='muted';p.textContent=l;d.appendChild(p);}
+  return d;
+}
+async function load(){
+  const {digest,time}=await call('/api/manager/digest',{});
+  $('#time-input').value=time;
+  const nr=$('#no-role');nr.replaceChildren();
+  for(const p of digest.no_role)nr.appendChild(card(p.title,['Начало: '+(p.start||'').slice(0,16),'Роль не добавлена: распределение не начнётся']));
+  if(!digest.no_role.length)nr.textContent='Всё в порядке.';
+  const rp=$('#repeats');rp.replaceChildren();
+  for(const r of digest.repeats)rp.appendChild(card(r.contact,['Заявок: '+r.count,'Номера: '+r.intake_ids.join(', ')]));
+  if(!digest.repeats.length)rp.textContent='Повторных заявок нет.';
+}
+$('#time').addEventListener('submit',async e=>{e.preventDefault();
+  try{await call('/api/reminders/time',{time:$('#time-input').value});status('Время сохранено.');}catch(err){status(err.message);}
+});
+load().catch(e=>status(e.message));
+</script>
+</body>
+</html>

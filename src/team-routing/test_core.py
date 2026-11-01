@@ -66,7 +66,9 @@ class RoutingTests(unittest.TestCase):
     def test_overlap_assignments_and_stale_terms(self):
         core.route('crew',self.db);m=self.rows('SELECT * FROM manager_acceptance')[0];core.manager_accept(m['id'],m['specialist_id'],'m',self.db)
         a=self.rows("SELECT * FROM offer WHERE slot_id='crew-0'")[0];b=self.rows("SELECT * FROM offer WHERE slot_id='crew-1' AND specialist_id=?",(a['specialist_id'],))[0]
-        for o in [a,b]:core.respond(o['id'],o['specialist_id'],'accept',1,'r'+o['id'],self.db)
+        core.respond(a['id'],a['specialist_id'],'accept',1,'r'+a['id'],self.db)
+        # Overlapping roles of the same person are refused at acceptance time, not only at selection.
+        with self.assertRaises(ValueError):core.respond(b['id'],b['specialist_id'],'accept',1,'r'+b['id'],self.db)
         core.select_offer(a['id'],'owner','a',self.db)
         with self.assertRaises(ValueError):core.select_offer(b['id'],'owner','b',self.db)
         with self.assertRaises(ValueError):core.block(a['specialist_id'],'2026-12-01T11:00','2026-12-01T12:00','Europe/Moscow',self.db)
@@ -77,21 +79,31 @@ class RoutingTests(unittest.TestCase):
     def test_unknown_and_working_hours(self):
         core.route('unknown',self.db);self.assertEqual(self.rows("SELECT status FROM orders WHERE id='unknown'")[0]['status'],'human_review')
         d=core.deadline_work(1,'Europe/Moscow',core.datetime.fromisoformat('2026-10-23T15:30:00+00:00'));self.assertTrue(d.startswith('2026-10-26'))
+    def test_old_draft_without_pay_unit_returns_to_question(self):
+        with patch.object(core,'DB',self.db):
+            payload={'name':'TEST old','city':'Москва','roles':['camera'],'skills':['interview'],'tasks':['shoot'],'mobility':'city','equipment':'none','rate':10000,'currency':'RUB','languages':['ru'],'email':'old-draft@example.invalid','phone':'','telegram':'','timezone':'Europe/Moscow','portfolio':'https://example.invalid/old','portfolio_role':'camera','contact_verified':False}
+            with core.connect() as c:
+                c.execute('INSERT INTO bot_state VALUES(?,?,?)',(12346,len(bot.FIELDS)-1,json.dumps(payload,ensure_ascii=False)))
+            u={'update_id':216,'message':{'chat':{'id':12346,'type':'private'},'from':{'id':12346,'username':'test_only'},'text':'ДА'}}
+            reply=bot.process_update(u)
+            self.assertIn('вопрос про оплату',reply)
+            self.assertEqual(self.rows('SELECT COUNT(*) n FROM specialist WHERE telegram_id=12346')[0]['n'],0)
+
     def test_full_bot_registration_and_duplicate_update(self):
         with patch.object(core,'DB',self.db):
             def send(i,text):
                 u={'update_id':i,'message':{'chat':{'id':12345,'type':'private'},'from':{'id':12345,'username':'test_only'},'text':text}}
                 return bot.process_update(u)
             first=send(100,'/start');self.assertEqual(first,send(100,'/start'))
-            answers=['TEST bot','Москва','camera','interview','shoot','city','none','10000','RUB','ru','bot-test@example.invalid','-','Europe/Moscow','https://example.invalid/test','Camera operator','ДА']
+            answers=['TEST bot','Москва','camera','interview','shoot','city','none','shift12','10000','RUB','ru','bot-test@example.invalid','-','Europe/Moscow','https://example.invalid/test','Camera operator','ДА']
             for i,answer in enumerate(answers,101):reply=send(i,answer)
             self.assertIn('Анкета сохранена',reply)
-            self.assertEqual(reply,send(116,'ДА'))
+            self.assertEqual(reply,send(117,'ДА'))
             row=self.rows('SELECT * FROM specialist WHERE telegram_id=12345')[0]
             self.assertEqual(row['verified'],0);self.assertFalse(json.loads(row['profile'])['contact_verified'])
-            self.assertIn('Занятость сохранена',send(117,'/busy 2026-12-02T10:00|2026-12-02T12:00|Europe/Moscow'))
+            self.assertIn('Занятость сохранена',send(118,'/busy 2026-12-02T10:00|2026-12-02T12:00|Europe/Moscow'))
             block=self.rows('SELECT id FROM availability WHERE specialist_id=?',(row['id'],))[0]['id']
-            self.assertIn('отменена',send(118,'/unblock '+block))
+            self.assertIn('отменена',send(119,'/unblock '+block))
     def test_stale_terms_and_unauthorized_reply(self):
         core.route('simple',self.db);o=self.rows('SELECT * FROM offer')[0]
         with self.assertRaises(ValueError):core.respond(o['id'],'stranger','accept',1,'bad-actor',self.db)

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RENN Prod · Кабинет владельца</title>
+<style>
+:root{--bg:#111315;--surface:#1b1e21;--text:#f4f1e9;--accent:#ffad29;--muted:#a9a59a;--line:#41464a;--danger:#ff6b6b;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+header{padding:18px 16px;border-bottom:1px solid var(--line)}
+header b{color:var(--accent)}
+main{padding:14px 16px 60px;max-width:900px;margin:auto}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 18px}
+nav button{flex:1 1 auto;min-height:44px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:6px;font:inherit;cursor:pointer}
+nav button[aria-pressed=true]{background:var(--accent);color:#17170f;border-color:var(--accent);font-weight:700}
+section{display:none}section.on{display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px;margin:10px 0}
+.card h3{margin:0 0 6px;font-size:16px}
+.muted{color:var(--muted);font-size:13px}
+button.act{min-height:40px;padding:8px 12px;margin:6px 6px 0 0;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:6px;font:inherit;cursor:pointer}
+button.act.danger{color:var(--danger);border-color:var(--danger)}
+button.primary{min-height:44px;padding:10px 14px;background:var(--accent);color:#17170f;border:0;border-radius:6px;font:inherit;font-weight:700;cursor:pointer;width:100%}
+input,select{width:100%;min-height:42px;padding:8px;margin:4px 0 10px;background:#101510;color:var(--text);border:1px solid #6e685a;border-radius:4px;font:inherit;box-sizing:border-box}
+label{display:block;font-size:13px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr;gap:0 12px}
+@media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+#status{min-height:22px;color:var(--accent);margin:8px 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header><b>RENN Prod</b> · кабинет владельца</header>
+<main>
+<nav>
+  <button type="button" data-tab="staff" aria-pressed="true">Сотрудники</button>
+  <button type="button" data-tab="managers" aria-pressed="false">Менеджеры</button>
+  <button type="button" data-tab="orders" aria-pressed="false">Заказы</button>
+  <button type="button" data-tab="economics" aria-pressed="false">Экономика</button>
+</nav>
+<p id="status" role="status"></p>
+
+<section id="tab-staff" class="on">
+  <h2>Сотрудники</h2>
+  <div id="staff-list"></div>
+  <h2>Добавить сотрудника</h2>
+  <form id="staff-form" class="card">
+    <div class="grid">
+      <label>Имя *<input name="name" required></label>
+      <label>Город *<input name="city" required></label>
+      <label>Роли (через запятую, коды: camera, editor, sound, manager, generative, event, cg, fpv, designer, gaffer, lighting, driver, costume, makeup) *<input name="roles" required></label>
+      <label>Навыки (interview, multicam, color, sound, editing, generation, coordination, cg, fpv) *<input name="skills" required></label>
+      <label>Задачи (shoot, edit, generate, event) *<input name="tasks" required></label>
+      <label>Языки (ru, en, es, ka) *<input name="languages" value="ru" required></label>
+      <label>Техника (none, camera, camera_audio, studio) *<input name="equipment" value="none" required></label>
+      <label>Формат работы (city, travel, remote) *<input name="mobility" value="city" required></label>
+      <label>Ставка *<input name="rate" type="number" min="1" required></label>
+      <label>Оплата (shift8, shift12, hour, task) *<input name="rate_unit" value="shift12" required></label>
+      <label>Валюта (RUB, EUR, USD) *<input name="currency" value="RUB" required></label>
+      <label>Email *<input name="email" type="email" required></label>
+      <label>Часовой пояс *<input name="timezone" value="Europe/Moscow" required></label>
+      <label>Портфолио (https://) *<input name="portfolio" required></label>
+      <label>Роль в портфолио *<input name="portfolio_role" required></label>
+    </div>
+    <button class="primary" type="submit">Добавить сотрудника</button>
+  </form>
+</section>
+
+<section id="tab-managers">
+  <h2>Менеджеры и аккаунты</h2>
+  <div id="accounts-list"></div>
+  <h2>Пригласить через Telegram</h2>
+  <form id="invite-form" class="card">
+    <label>Кого приглашаем
+      <select name="role"><option value="manager">Менеджер</option><option value="employee">Сотрудник</option></select>
+    </label>
+    <p class="muted">Сотрудник сначала заполняет анкету в боте (кнопка «Анкета»), затем получает код. Менеджеру права выдаются здесь.</p>
+    <label><input type="checkbox" name="finances:read" style="width:auto;min-height:0"> Видит финансы и ставки (только менеджер)</label>
+    <label><input type="checkbox" name="contacts:read" style="width:auto;min-height:0"> Видит контакты (только менеджер)</label>
+    <button class="primary" type="submit">Создать приглашение</button>
+  </form>
+  <div id="invite-result" class="card" hidden>
+    <h3>Код приглашения (показан один раз)</h3>
+    <p class="muted">Отправьте человеку. Код работает 7 дней и один раз. Человек открывает @RENNPROD_bot и пишет: <b>/invite КОД</b></p>
+    <p id="invite-code" style="font-size:18px;word-break:break-all"></p>
+  </div>
+</section>
+
+<section id="tab-orders">
+  <h2>Заказы</h2>
+  <div id="orders-list"></div>
+</section>
+
+<section id="tab-economics">
+  <h2>Экономика</h2>
+  <div id="economics-list"></div>
+</section>
+</main>
+<script>
+const session='__SESSION__';
+const $=s=>document.querySelector(s);
+const esc=x=>String(x??'');
+async function getState(){const r=await fetch('/api/state',{credentials:'same-origin',cache:'no-store',headers:{'X-Local-Session':session}});if(!r.ok)throw new Error('Не удалось загрузить данные ('+r.status+')');return r.json();}
+function status(text){$('#status').textContent=text;}
+async function call(path,body){
+  const r=await fetch(path,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-Local-Session':session},body:JSON.stringify(body??{})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.error||('Ошибка '+r.status));
+  return data;
+}
+function button(label,onClick,danger){
+  const b=document.createElement('button');b.type='button';b.className='act'+(danger?' danger':'');b.textContent=label;b.addEventListener('click',onClick);return b;
+}
+function card(title,lines){
+  const d=document.createElement('div');d.className='card';
+  const h=document.createElement('h3');h.textContent=title;d.appendChild(h);
+  for(const l of lines){const p=document.createElement('div');p.className='muted';p.textContent=l;d.appendChild(p);}
+  return d;
+}
+async function guard(fn){try{await fn();}catch(e){status(e.message);}}
+
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id==='tab-'+b.dataset.tab));
+  load(b.dataset.tab);
+}));
+
+async function loadStaff(){
+  const {staff}=await call('/api/owner/staff');
+  const box=$('#staff-list');box.replaceChildren();
+  for(const s of staff){
+    const c=card(s.name+(s.archived?' · в архиве':''),[(s.roles||[]).join(', ')+' · '+s.city,(s.verified?'квалификация проверена':'ожидает проверки')+' · Telegram: '+(s.telegram?'привязан':'нет')]);
+    c.appendChild(s.archived
+      ?button('Вернуть',()=>guard(async()=>{await call('/api/owner/staff/restore',{id:s.id});status('Сотрудник возвращён.');loadStaff();}))
+      :button('Убрать в архив',()=>guard(async()=>{await call('/api/owner/staff/archive',{id:s.id});status('Сотрудник убран в архив.');loadStaff();}),true));
+    box.appendChild(c);
+  }
+  if(!staff.length)box.textContent='Сотрудников пока нет.';
+}
+
+async function loadAccounts(){
+  const list=await fetch('/api/accounts',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json());
+  const box=$('#accounts-list');box.replaceChildren();
+  for(const a of list){
+    const c=card(a.username+' · '+a.role,['Права: '+(a.permissions||[]).join(', ')]);
+    if(a.role!=='owner')c.appendChild(button('Отключить',()=>guard(async()=>{await call('/api/owner/account/deactivate',{id:a.id});status('Аккаунт отключён.');loadAccounts();}),true));
+    box.appendChild(c);
+  }
+}
+
+async function loadOrders(){
+  const state=await getState();
+  const box=$('#orders-list');box.replaceChildren();
+  for(const o of state.orders||[]){
+    const c=card(o.title,[o.city+' · '+o.start.slice(0,16)+' — '+o.end.slice(0,16),'Статус: '+o.status]);
+    const price=document.createElement('input');price.type='number';price.min='0';price.placeholder='Цена клиента, ₽';
+    c.appendChild(price);
+    c.appendChild(button('Сохранить цену',()=>guard(async()=>{await call('/api/owner/price',{order:o.id,price:Number(price.value)});status('Цена сохранена.');})));
+    c.appendChild(button('Удалить заказ',()=>guard(async()=>{await call('/api/owner/order/delete',{order:o.id});status('Заказ удалён.');loadOrders();}),true));
+    box.appendChild(c);
+  }
+  if(!(state.orders||[]).length)box.textContent='Заказов пока нет.';
+}
+
+async function loadEconomics(){
+  const sum=await call('/api/owner/economics/summary');
+  const t=sum.totals;const box=$('#economics-list');box.replaceChildren();
+  const money=v=>Math.round(v).toLocaleString('ru-RU')+' ₽';
+  const margin=t.client_price?Math.round(t.margin/t.client_price*100)+'%':'—';
+  box.appendChild(card('Все клиенты: '+t.orders+' заказов',[
+    'С ценой клиента: '+t.priced+' из '+t.orders,
+    'Выручка (цена клиента): '+money(t.client_price),
+    'Выплаты исполнителям (только сравнимые заказы): '+money(t.payouts),
+    'Все выплаты без пересчёта единиц: '+money(t.payouts_all_units_raw)+' · заказов без сравнимой маржи: '+(t.not_comparable||0),
+    'Маржа: '+money(t.margin)+' ('+margin+')',
+    'Бюджет по ролям: '+money(t.budget)]));
+  if(!sum.items.length){box.appendChild(card('Заказов пока нет',[]));return;}
+  for(const it of sum.items){
+    const fmt=v=>v===null||v===undefined?'цена не указана':money(v);
+    box.appendChild(card(it.title,['Цена клиента: '+fmt(it.client_price),'Выплаты: '+money(it.payouts),'Маржа: '+fmt(it.margin)]));
+  }
+  if(sum.shown<t.orders)box.appendChild(card('Показаны первые '+sum.shown+' из '+t.orders,[]));
+}
+
+async function load(tab){
+  await guard(async()=>{
+    status('');
+    if(tab==='staff')await loadStaff();
+    if(tab==='managers')await loadAccounts();
+    if(tab==='orders')await loadOrders();
+    if(tab==='economics')await loadEconomics();
+  });
+}
+
+$('#staff-form').addEventListener('submit',e=>{e.preventDefault();guard(async()=>{
+  const f=new FormData(e.target);const v=k=>String(f.get(k)||'').trim();
+  const list=k=>v(k).split(',').map(x=>x.trim()).filter(Boolean);
+  const body={name:v('name'),city:v('city'),roles:list('roles'),skills:list('skills'),tasks:list('tasks'),languages:list('languages'),
+    equipment:v('equipment'),mobility:v('mobility'),rate:Number(v('rate')),rate_unit:v('rate_unit'),currency:v('currency'),
+    email:v('email'),timezone:v('timezone'),portfolio:v('portfolio'),portfolio_role:v('portfolio_role'),phone:'',telegram:''};
+  await call('/api/staff/add',body);status('Сотрудник добавлен.');e.target.reset();loadStaff();
+});});
+
+$('#invite-form').addEventListener('submit',e=>{e.preventDefault();guard(async()=>{
+  const f=new FormData(e.target);const role=String(f.get('role'));
+  const permissions=role==='manager'?['finances:read','contacts:read'].filter(k=>f.get(k)):[];
+  const r=await call('/api/owner/invite',{role,permissions});
+  $('#invite-code').textContent=r.code;$('#invite-result').hidden=false;
+  status('Приглашение создано.');e.target.reset();
+});});
+
+load('staff');
+</script>
+</body>
+</html>

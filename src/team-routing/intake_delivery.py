@@ -56,7 +56,7 @@ def create_project(c,p):
         if not isinstance(city,str) or not 1<=len(city.strip())<=120:raise ValueError('City required')
         ident=core.uid()
         brief=json.dumps({'intake_id':p['id'],'task':payload.get('idea','')},ensure_ascii=False)
-        c.execute('INSERT INTO orders(id,title,kind,city,start,end,brief) VALUES(?,?,?,?,?,?,?)',(ident,title.strip(),payload.get('service','professional'),city.strip(),a,b,brief))
+        c.execute('INSERT INTO orders(id,title,kind,city,start,end,brief) VALUES(?,?,?,?,?,?,?)',(ident,title.strip(),task_kind(payload.get('service')),city.strip(),a,b,brief))
         c.execute('INSERT INTO intake_project VALUES(?,?)',(p['id'],ident))
         set_status(c,p['id'],'working')
         c.commit();return ident
@@ -90,6 +90,12 @@ def save(c,p):
         c.rollback();raise
 
 core_services=('professional','reels','commercial','art','editing','graphics','cg','ai')
+# Proposed mapping (owner to confirm): a website service becomes a task type the routing understands.
+SERVICE_TO_TASK={'professional':'shoot','reels':'shoot','commercial':'shoot','art':'shoot','editing':'edit','graphics':'generate','cg':'generate','ai':'generate'}
+def task_kind(service):
+    if service is None:return 'shoot'
+    if not isinstance(service,str) or service not in SERVICE_TO_TASK:raise ValueError('Неизвестная услуга')
+    return SERVICE_TO_TASK[service]
 
 def flush():
     if not _flush_lock.acquire(blocking=False):return {'status':'busy','sent':0}

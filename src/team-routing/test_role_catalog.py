@@ -11,7 +11,7 @@ class RoleCatalogTests(unittest.TestCase):
  def tearDown(self):
   self.mock.assert_not_called();self.transport.stop();self.dp.stop();self.tmp.cleanup()
  def profile(self,role):
-  return {'name':'TEST '+role,'city':'Другой тестовый город','roles':[role],'skills':['cg'],'tasks':['shoot','edit','generate','event'],'mobility':'remote','equipment':'none','rate':10000,'currency':'RUB','languages':['ru'],'email':'synthetic@example.invalid','timezone':'UTC','portfolio':'https://example.invalid/portfolio','portfolio_role':role}
+  return {'name':'TEST '+role,'city':'Другой тестовый город','roles':[role],'skills':['cg'],'tasks':['shoot','edit','generate','event'],'mobility':'remote','equipment':'none','rate':10000,'rate_unit':'shift12','currency':'RUB','languages':['ru'],'email':'synthetic@example.invalid','timezone':'UTC','portfolio':'https://example.invalid/portfolio','portfolio_role':role}
  def test_catalog_labels_and_profile_validation(self):
   self.assertEqual(core.ROLES,EXPECTED);self.assertEqual(len(set(core.ROLES)),14);self.assertEqual(bot.choices('roles'),EXPECTED)
   for role in EXPECTED:self.assertEqual(core.ROLE_LABELS[role],bot.LABELS[role])
@@ -41,9 +41,9 @@ class RoleCatalogTests(unittest.TestCase):
  def test_new_roles_multiselect_done_duplicate_stale_and_wrong_actor(self):
   with core.connect() as c:
    c.execute('INSERT INTO bot_state VALUES(42,2,?)',(json.dumps({'name':'TEST','city':'Москва'}),));ui=bot.prompt(42,c)
-  texts=[r[0]['text'] for r in ui['reply_markup']['inline_keyboard']]
+  texts=[b['text'] for r in ui['reply_markup']['inline_keyboard'] for b in r]
   for label in EXTRA.values():self.assertIn(label,texts)
-  self.assertIn('Готово →',texts);nonce=ui['reply_markup']['inline_keyboard'][0][0]['callback_data'].split(':')[0]
+  self.assertIn('✅ Далее ➡️',texts);nonce=ui['reply_markup']['inline_keyboard'][0][0]['callback_data'].split(':')[0]
   def click(i,action,actor=42):
    event={'update_id':i,'callback_query':{'id':'test-'+str(i),'from':{'id':actor},'message':{'message_id':100,'chat':{'id':42,'type':'private'}},'data':nonce+':'+action}}
    return event,bot.process_update(event)

@@ -26,10 +26,19 @@ def call(method,payload=None):
         if method=='editMessageText' and e.code==400 and 'message is not modified' in description:return True
         raise RuntimeError('Telegram transport/API failure (details suppressed)') from None
     except Exception:raise RuntimeError('Telegram transport/API failure (details suppressed)') from None
-FIELDS=[('name','Как вас зовут?'),('city','Ваш город?'),('roles','Роли (коды через запятую): '+', '.join(core.ROLES)),('skills','Навыки (коды через запятую): '+', '.join(core.SKILLS)),('tasks','Типы задач (коды через запятую): '+', '.join(core.TASKS)),('mobility','Формат: city / travel / remote'),('equipment','Техника: none / camera / camera_audio / studio'),('rate','Ориентир за смену или задачу — число. Точные условия подтверждаются в предложении.'),('currency','Валюта: RUB / EUR / USD'),('languages','Языки через запятую: ru, en, es, ka'),('email','Email для резерва (обязателен, подтверждение пока не подключено)'),('phone','Телефон (необязательно; отправьте - для пропуска)'),('timezone','Часовой пояс: Europe/Moscow, Europe/Madrid, Asia/Tbilisi, America/New_York или UTC'),('portfolio','Ссылка на портфолио (https://...)'),('portfolio_role','Ваша собственная роль в работах портфолио'),('consent','Согласны сохранить анкету в локальной базе RENN Prod для рассмотрения проектного сотрудничества? Ответьте ДА. Контакты не подтверждаются автоматически, квалификацию проверит человек; задания/доход не гарантируются.')]
+FIELDS=[('name','Как вас зовут?'),('city','Ваш город?'),('roles','Роли (коды через запятую): '+', '.join(core.ROLES)),('skills','Навыки (коды через запятую): '+', '.join(core.SKILLS)),('tasks','Типы задач (коды через запятую): '+', '.join(core.TASKS)),('mobility','Формат: city / travel / remote'),('equipment','Техника: none / camera / camera_audio / studio'),('rate_unit','Как оплачивается работа? Выберите кнопкой.'),('rate','Ставка — число, в выбранной единице. Точные условия подтверждаются в предложении.'),('currency','Валюта: RUB / EUR / USD'),('languages','Языки через запятую: ru, en, es, ka'),('email','Email для резерва (обязателен, подтверждение пока не подключено)'),('phone','Телефон (необязательно; отправьте - для пропуска)'),('timezone','Часовой пояс: Europe/Moscow, Europe/Madrid, Asia/Tbilisi, America/New_York или UTC'),('portfolio','Ссылка на портфолио (https://...)'),('portfolio_role','Ваша собственная роль в работах портфолио'),('consent','Согласны сохранить анкету в локальной базе RENN Prod для рассмотрения проектного сотрудничества? Ответьте ДА. Контакты не подтверждаются автоматически, квалификацию проверит человек; задания/доход не гарантируются.')]
+CONSENT_TEXT=('Согласны сохранить анкету в локальной базе RENN Prod для рассмотрения проектного сотрудничества?\n'
+    'Ответьте <b>ДА</b>.\nКонтакты не подтверждаются автоматически, квалификацию проверит человек.\n'
+    '<i>(Задания и доход не гарантируются.)</i>')
+BUTTONS={'Анкета':'/start','Профиль':'/profile','Предложения':'/offers','Занятость':'/blocks','Заявки':'/requests','Отмена':'/cancel'}
+MENU={'keyboard':[[{'text':'Анкета'},{'text':'Профиль'}],[{'text':'Предложения'},{'text':'Занятость'}],[{'text':'Заявки'}]],'resize_keyboard':True,'is_persistent':True}
+
 def parse_field(field,text):
     t=text.strip()
     if len(t)>2500:raise ValueError('Слишком длинный ответ')
+    if field=='rate_unit':
+        if t not in core.RATE_UNITS:raise ValueError('Выберите вариант кнопкой')
+        return t
     allowed={'roles':core.ROLES,'skills':core.SKILLS,'tasks':core.TASKS,'languages':['ru','en','es','ka']}
     if field in allowed:
         xs=[x.strip() for x in t.split(',') if x.strip()]
@@ -43,29 +52,55 @@ def parse_field(field,text):
     if field=='email' and '@' not in t:raise ValueError('Укажите email')
     if field=='timezone':core.ZoneInfo(t)
     if field=='portfolio' and not t.startswith(('https://','http://')):raise ValueError('Нужна https:// ссылка')
-    if field=='consent' and t.upper() not in ['ДА','YES']:raise ValueError('Для сохранения нужно ДА; для удаления черновика /cancel')
+    if field=='consent' and t.upper() not in ['ДА','YES']:raise ValueError('Для сохранения нужно ДА; для удаления черновика нажмите «Отмена»')
     if not t:raise ValueError('Пустой ответ')
+    if field=='name' and t.startswith('/'):raise ValueError('Имя не может начинаться с /')
     return '' if field=='phone' and t=='-' else t
 
 def handle(message,connection=None):
     if message.get('chat',{}).get('type')!='private' or message.get('from',{}).get('is_bot') or message.get('chat',{}).get('id')!=message.get('from',{}).get('id'):return None
-    ident=message['from']['id'];text=message.get('text','').strip()
-    if not text:return 'Отправьте текстовый ответ или /start.'
+    ident=message['from']['id'];raw=message.get('text','').strip();text=raw
+    if not text:return 'Отправьте текстовый ответ или нажмите «Анкета».'
     with (core.nullcontext(connection) if connection else core.connect()) as c:
+        in_draft=c.execute('SELECT 1 FROM bot_state WHERE telegram_id=?',(ident,)).fetchone() is not None
+        if not in_draft or raw=='Отмена':text=BUTTONS.get(raw,raw)  # inside a questionnaire, button labels are answers
+        if text.split(' ')[0]=='/invite':
+            import auth,telegram_link
+            try:
+                telegram_link.schema(c)
+                if c.execute('SELECT 1 FROM telegram_account WHERE telegram_id=?',(ident,)).fetchone():
+                    return 'Приглашение не принято: этот Telegram уже привязан к аккаунту.'
+                person=c.execute('SELECT id FROM specialist WHERE telegram_id=?',(ident,)).fetchone()
+                made=auth.consume_invite(text.partition(' ')[2].strip(),ident,(message.get('from',{}).get('username') or ''),specialist_id=person['id'] if person else None)
+                try:
+                    c.execute('INSERT INTO telegram_account VALUES(?,?)',(made['id'],ident))
+                except sqlite3.IntegrityError:
+                    auth.undo_invite(made['id'],made['digest'])
+                    raise
+                # The password is shown once and never cached in the command table.
+                return {'text':'Приглашение принято.\nЛогин: '+made['username']+'\nВременный пароль: '+made['password']+'\nВойдите на сайт и сразу смените пароль. Пароль показан один раз.','_secret':True}
+            except (ValueError,sqlite3.IntegrityError) as e:
+                return 'Приглашение не принято: '+(str(e) if str(e) in ('Invalid invite','Сначала заполните анкету') else 'попросите новый код у владельца.')
+        if text.split(' ')[0]=='/remind':
+            import telegram_link, reminders
+            actor=telegram_link.principal(ident,c)
+            try:return 'Напоминание будет приходить в '+reminders.set_time(c,actor,text.partition(' ')[2])['time']+' (по Москве). Повторные заявки и проекты без роли — в списке.'
+            except PermissionError:return 'Напоминания доступны привязанному менеджеру.'
+            except ValueError as e:return str(e)
         if text.split(' ')[0]=='/link':
             import telegram_link
             try:
                 telegram_link.consume(text.partition(' ')[2].strip(),ident,c)
-                return {'text':'Telegram привязан к вашему кабинету. /offers — предложения.'}
+                return {'text':'Telegram привязан к вашему кабинету. Кнопка «Предложения» покажет отклики.'}
             except (ValueError, sqlite3.IntegrityError):
                 # Never echo the bearer code or database exception to the chat.
                 return {'text':'Привязка не выполнена. Получите новый код в своём кабинете; проверьте существующую привязку.'}
         if text.split(' ')[0] in ['/start','/cancel']:
             c.execute('DELETE FROM bot_state WHERE telegram_id=?',(ident,))
-            if text=='/cancel':return 'Черновик удалён. Сохранённый профиль остаётся в базе; удаление через владельца. /start — начать заново.'
+            if text=='/cancel':return 'Черновик удалён. Сохранённый профиль остаётся в базе; удаление через владельца. Кнопка «Анкета» начнёт заново.'
             p={'telegram':'@'+message['from'].get('username','') if message['from'].get('username') else '', 'contact_verified':False}
             c.execute('INSERT INTO bot_state VALUES(?,0,?)',(ident,json.dumps(p)))
-            return 'RENN Prod · проектное сотрудничество. Анкета сохраняется на локальном Mac владельца. /cancel — удалить черновик; /profile — статус. '+FIELDS[0][1]
+            return 'RENN Prod · проектное сотрудничество. Анкета сохраняется на локальном Mac владельца. «Отмена» удалит черновик, «Профиль» покажет статус. '+FIELDS[0][1]
         if text=='/requests':
             import auth,telegram_link
             actor=telegram_link.principal(ident,c)
@@ -95,17 +130,17 @@ def handle(message,connection=None):
             for i,r in enumerate(rows,1):
                 terms=json.loads(r['terms'])
                 label=lambda value:str(value or 'Не указано')[:90]
-                lines.append(f"{i}. {label(r['title'])}\n{label(r['city'])} · {label(terms.get('start',r['start']))}\n{label(terms.get('deliverable'))}\nОплата: {label(terms.get('fee'))} {label(terms.get('currency'))}")
+                lines.append(f"{i}. {label(r['title'])}\n{label(r['city'])} · {label(terms.get('start',r['start']))}\n{label(terms.get('deliverable'))}\nОплата: {label(terms.get('fee'))} {label(terms.get('currency'))} · {label(terms.get('fee_unit'))}")
                 keyboard.append([{'text':f'{i} · Взять','callback_data':f"offer:{r['id']}:{r['version']}:a"},{'text':f'{i} · Отказаться','callback_data':f"offer:{r['id']}:{r['version']}:d"}])
             return {'text':'Предложения (принятие — отклик, назначение подтверждает менеджер):\n'+'\n'.join(lines),'reply_markup':{'inline_keyboard':keyboard}}
         if text=='/blocks':
             person=c.execute('SELECT id FROM specialist WHERE telegram_id=?',(ident,)).fetchone()
-            if not person:return 'Сначала заполните анкету: /start'
+            if not person:return 'Сначала заполните анкету: кнопка «Анкета».'
             rows=c.execute('SELECT id,start,end,timezone FROM availability WHERE specialist_id=? AND active=1',(person[0],)).fetchall()
             return ('\n'.join(' | '.join(str(v) for v in r) for r in rows) or 'Нет блокировок. Это не подтверждение доступности.')+'\nДобавить: /busy 2026-12-01T10:00|2026-12-01T12:00|Europe/Moscow; отмена: /unblock ID. Для изменения отмените и добавьте новый.'
         if text.startswith('/busy ') or text.startswith('/unblock '):
             person=c.execute('SELECT id FROM specialist WHERE telegram_id=?',(ident,)).fetchone()
-            if not person:return 'Сначала заполните анкету: /start'
+            if not person:return 'Сначала заполните анкету: кнопка «Анкета».'
             try:
                 if text.startswith('/busy '):
                     a,b,tz=text[6:].split('|');a,b=core.normalize_interval(a.strip(),b.strip(),tz.strip())
@@ -115,26 +150,32 @@ def handle(message,connection=None):
             except Exception:return 'Формат: /busy 2026-12-01T10:00|2026-12-01T12:00|Europe/Moscow или /unblock ID'
         if text=='/profile':
             s=c.execute('SELECT name,verified FROM specialist WHERE telegram_id=?',(ident,)).fetchone()
-            return (s['name']+' · '+('квалификация проверена владельцем' if s['verified'] else 'ожидает проверки квалификации')+'; контакты не подтверждены') if s else 'Анкеты ещё нет. /start'
+            return (s['name']+' · '+('квалификация проверена владельцем' if s['verified'] else 'ожидает проверки квалификации')+'; контакты не подтверждены') if s else 'Анкеты ещё нет. Нажмите «Анкета».'
         st=c.execute('SELECT * FROM bot_state WHERE telegram_id=?',(ident,)).fetchone()
-        if not st:return 'Для анкеты отправьте /start. Задания и доход не гарантируются.'
-        step=st['step'];p=json.loads(st['payload']);field=FIELDS[step][0]
+        if not st:return 'Для анкеты нажмите «Анкета». Задания и доход не гарантируются.'
+        step=st['step'];p=json.loads(st['payload'])
+        unit_at=[f for f,_ in FIELDS].index('rate_unit')
+        if step>unit_at and 'rate_unit' not in p:
+            # Drafts saved before the pay-unit question was inserted: ask it before continuing.
+            c.execute('UPDATE bot_state SET step=?,payload=? WHERE telegram_id=?',(unit_at,st['payload'],ident))
+            return 'В анкету добавлен вопрос про оплату. '+FIELDS[unit_at][1]
+        field=FIELDS[step][0]
         try:p[field]=parse_field(field,text)
         except Exception:return 'Ответ не принят. '+FIELDS[step][1]
         if step==len(FIELDS)-1:
             p.pop('consent',None)
             for key in ['_ui_nonce','_ui_step','_selected']:p.pop(key,None)
             try:sid=core.register(p,telegram_id=ident,dbconn=c)
-            except Exception:return 'Анкета не сохранена. Проверьте поля или начните /start.'
+            except Exception:return 'Анкета не сохранена. Проверьте поля или начните заново кнопкой «Анкета».'
             c.execute('DELETE FROM bot_state WHERE telegram_id=?',(ident,))
-            return 'Анкета сохранена в локальной базе RENN Prod. ID: '+sid+'. Квалификацию проверит человек; контакты не подтверждены. Спасибо! /profile — статус.'
+            return 'Анкета сохранена в локальной базе RENN Prod. ID: '+sid+'. Квалификацию проверит человек; контакты не подтверждены. Спасибо! Кнопка «Профиль» покажет статус.'
         c.execute('UPDATE bot_state SET step=?,payload=? WHERE telegram_id=?',(step+1,json.dumps(p,ensure_ascii=False),ident))
         return FIELDS[step+1][1]
 
-LABELS={**core.ROLE_LABELS, **{'interview': 'Интервью', 'multicam': 'Мультикамера', 'color': 'Цвет', 'editing': 'Монтаж', 'generation': 'AI-генерация', 'coordination': 'Координация', 'shoot': 'Съёмка', 'edit': 'Монтаж', 'generate': 'Генерация', 'city': 'В своём городе', 'travel': 'Готов к выездам', 'remote': 'Удалённо', 'none': 'Без своей техники', 'camera_audio': 'Камера и звук', 'studio': 'Студия', 'ru': 'Русский', 'en': 'Английский', 'es': 'Испанский', 'ka': 'Грузинский', 'ДА': 'Согласен'}}
+LABELS={**core.ROLE_LABELS, **core.RATE_UNITS, **{'interview': 'Интервью', 'multicam': 'Мультикамера', 'color': 'Цвет', 'editing': 'Монтаж', 'generation': 'AI-генерация', 'coordination': 'Координация', 'shoot': 'Съёмка', 'edit': 'Монтаж', 'generate': 'Генерация', 'city': 'В своём городе', 'travel': 'Готов к выездам', 'remote': 'Удалённо', 'none': 'Без своей техники', 'camera_audio': 'Камера и звук', 'studio': 'Студия', 'ru': 'Русский', 'en': 'Английский', 'es': 'Испанский', 'ka': 'Грузинский', 'ДА': 'Согласен'}}
 MULTI={'roles','skills','tasks','languages'}
 def choices(field):
-    return {'roles':core.ROLES,'skills':core.SKILLS,'tasks':core.TASKS,'languages':['ru','en','es','ka'],'mobility':['city','travel','remote'],'equipment':['none','camera','camera_audio','studio'],'currency':['RUB','EUR','USD'],'timezone':['Europe/Moscow','Europe/Madrid','Asia/Tbilisi','America/New_York','UTC'],'consent':['ДА']}.get(field,[])
+    return {'rate_unit':list(core.RATE_UNITS),'roles':core.ROLES,'skills':core.SKILLS,'tasks':core.TASKS,'languages':['ru','en','es','ka'],'mobility':['city','travel','remote'],'equipment':['none','camera','camera_audio','studio'],'currency':['RUB','EUR','USD'],'timezone':['Europe/Moscow','Europe/Madrid','Asia/Tbilisi','America/New_York','UTC'],'consent':['ДА']}.get(field,[])
 def prompt(ident,connection):
     st=connection.execute('SELECT * FROM bot_state WHERE telegram_id=?',(ident,)).fetchone()
     if not st:return None
@@ -145,10 +186,12 @@ def prompt(ident,connection):
         connection.execute('UPDATE bot_state SET payload=? WHERE telegram_id=?',(json.dumps(p,ensure_ascii=False),ident))
     nonce=p['_ui_nonce'];selected=p.get('_selected',[])
     keyboard=[[{'text':('✓ ' if x in selected else '')+('Камера' if field=='equipment' and x=='camera' else LABELS.get(x,x)), 'callback_data':nonce+':'+str(i)}] for i,x in enumerate(xs)]
-    if field in MULTI:keyboard.append([{'text':'Готово →','callback_data':nonce+':done'}])
-    keyboard.append([{'text':'Отмена','callback_data':nonce+':cancel'}])
-    title={'roles':'Выберите ваши роли','skills':'Выберите навыки','tasks':'Какие задачи берёте?','languages':'На каких языках работаете?','mobility':'Где готовы работать?','equipment':'Какая техника есть?','currency':'Выберите валюту','timezone':'Ваш часовой пояс','consent':FIELDS[st['step']][1]}[field]
-    return {'text':title+(' · можно выбрать несколько' if field in MULTI else ''),'reply_markup':{'inline_keyboard':keyboard}}
+    # One row: back on the left, forward on the right (multi-select only).
+    nav=[{'text':'⬅️ Назад','callback_data':nonce+':back'}]
+    if field in MULTI:nav.append({'text':'✅ Далее ➡️','callback_data':nonce+':done'})
+    keyboard.append(nav)
+    title={'consent':CONSENT_TEXT,'rate_unit':'Как оплачивается работа?','roles':'Выберите ваши роли','skills':'Выберите навыки','tasks':'Какие задачи берёте?','languages':'На каких языках работаете?','mobility':'Где готовы работать?','equipment':'Какая техника есть?','currency':'Выберите валюту','timezone':'Ваш часовой пояс'}[field]
+    return {'text':title+(' · можно выбрать несколько' if field in MULTI else ''),'reply_markup':{'inline_keyboard':keyboard},**({'parse_mode':'HTML'} if field=='consent' else {})}
 def callback(query,c):
     sender=query.get('from',{});msg=query.get('message',{});ident=sender.get('id')
     if not ident or sender.get('is_bot') or msg.get('chat',{}).get('type')!='private' or msg['chat'].get('id')!=ident:return 'Кнопка недоступна.'
@@ -159,29 +202,35 @@ def callback(query,c):
             return 'Нет права управлять заявками.'
         parts=query['data'].split(':')
         if len(parts)!=3 or parts[2] not in ('new','working'):
-            return 'Кнопка заявки недоступна. /requests'
+            return 'Кнопка заявки недоступна.'
         # Read and write under process_update's transaction. Never trust button status.
         intake_delivery.list_intakes(c)
         row=c.execute("SELECT COALESCE(l.status,'new') AS status FROM intake i LEFT JOIN intake_lifecycle l ON l.intake_id=i.id WHERE i.id=? AND i.kind='client'",(parts[1],)).fetchone()
         if not row or row['status']!=parts[2]:
-            return 'Статус уже изменился. Обновите список: /requests'
+            return 'Статус уже изменился. Обновите список кнопкой «Заявки».'
         target={'new':'working','working':'archive'}[parts[2]]
         intake_delivery.set_status(c,parts[1],target)
-        return 'Заявка '+('в работе.' if target=='working' else 'в архиве.')+' /requests'
+        return 'Заявка '+('в работе.' if target=='working' else 'в архиве.')
     if query.get('data','').startswith('offer:'):
         parts=query['data'].split(':')
         person=c.execute('SELECT id FROM specialist WHERE telegram_id=?',(ident,)).fetchone()
         if len(parts)!=4 or not person or parts[3] not in ['a','d']:return 'Предложение недоступно.'
         try:
             result=core.respond_in_connection(c,parts[1],person[0],'accept' if parts[3]=='a' else 'decline',int(parts[2]))
-        except (ValueError,TypeError):return 'Предложение недоступно или условия изменились. /offers'
-        return 'Отклик принят. /offers' if result['status']!='declined' else 'Предложение отклонено. /offers'
+        except (ValueError,TypeError) as e:
+            if 'уже откликнулись' in str(e):return str(e)
+            return 'Предложение недоступно или условия изменились. Обновите список кнопкой «Предложения».'
+        return 'Отклик принят.' if result['status']!='declined' else 'Предложение отклонено.'
     st=c.execute('SELECT * FROM bot_state WHERE telegram_id=?',(ident,)).fetchone()
-    if not st:return 'Анкета уже завершена. /profile — статус.'
+    if not st:return 'Анкета уже завершена. Кнопка «Профиль» покажет статус.'
     p=json.loads(st['payload']);parts=query.get('data','').split(':');field=FIELDS[st['step']][0];xs=choices(field)
     if len(parts)!=2 or not secrets.compare_digest(parts[0],p.get('_ui_nonce','')) or p.get('_ui_step')!=st['step']:return 'Эта кнопка устарела. Ответьте на текущий вопрос.'
     action=parts[1]
     if action=='cancel':return handle({'chat':msg['chat'],'from':sender,'text':'/cancel'},c)
+    if action=='back':
+        if st['step']==0:return 'Это первый вопрос.'
+        c.execute('UPDATE bot_state SET step=? WHERE telegram_id=?',(st['step']-1,ident))
+        return FIELDS[st['step']-1][1]
     if field in MULTI and action!='done':
         try:value=xs[int(action)] if action.isdigit() else None
         except (IndexError,ValueError):value=None
@@ -201,7 +250,11 @@ def process_update(update):
     with core.connect() as c:
         c.execute('BEGIN IMMEDIATE');event='tg-update:'+str(update['update_id'])
         cached=c.execute('SELECT result FROM command WHERE id=?',(event,)).fetchone()
-        if cached:return json.loads(cached[0])
+        if cached:
+            again=json.loads(cached[0])
+            if isinstance(again,dict) and again.get('text')=='[скрыто]':
+                return 'Приглашение уже принято. Пароль показан один раз: попросите сброс временного пароля у владельца.'
+            return again
         query=update.get('callback_query');msg=update.get('message',{});ident=(query or msg).get('from',{}).get('id')
         before=c.execute('SELECT step FROM bot_state WHERE telegram_id=?',(ident,)).fetchone()
         reply=callback(query,c) if query else handle(msg,c)
@@ -211,8 +264,8 @@ def process_update(update):
             for key in ['_ui_nonce','_ui_step','_selected']:p.pop(key,None)
             c.execute('UPDATE bot_state SET payload=? WHERE telegram_id=?',(json.dumps(p,ensure_ascii=False),ident))
         prompt(ident,c)
-        c.execute('INSERT INTO command VALUES(?,?)',(event,json.dumps(reply,ensure_ascii=False)));c.commit()
-        if query and query.get('data','').startswith('offer:') and reply=='Предложение отклонено. /offers':
+        c.execute('INSERT INTO command VALUES(?,?)',(event,json.dumps({'text':'[скрыто]'} if isinstance(reply,dict) and reply.get('_secret') else reply,ensure_ascii=False)));c.commit()
+        if query and query.get('data','').startswith('offer:') and reply=='Предложение отклонено.':
             offer_id=query['data'].split(':')[1]
             order=c.execute('SELECT r.order_id FROM offer f JOIN role_slot r ON r.id=f.slot_id WHERE f.id=?',(offer_id,)).fetchone()
             if order:core.route(order[0])
@@ -239,6 +292,7 @@ def main():
                 with core.connect() as c:ui=prompt(ident,c)
                 if reply and msg.get('chat',{}).get('type')=='private' and msg['chat'].get('id')==ident:
                     payload={'chat_id':msg['chat']['id'],**(reply if isinstance(reply,dict) else ui or {'text':reply})}
+                    payload.setdefault('reply_markup',MENU);(payload.update({'protect_content':True}) if payload.pop('_secret',None) else None)
                     if query and ui:
                         payload['message_id']=msg['message_id']
                         call('editMessageText',payload)
